@@ -8,7 +8,7 @@ def zone_data(domain):
     tld = parts[0]+"."
     domain = parts[1]+"."+parts[0]+"."
     zone_data = {}
-    record_types = ("NS","A")
+    record_types = ("NS","A","AAAA")
     # Get nameservers and ips for tld root servers
     root_response = query_root(tld,record_types)
     zone_data.update(root_response)
@@ -23,7 +23,7 @@ def zone_data(domain):
     zone_ips = [record['data'] for record in zone_data.values() if record['name'] in zone_nameservers 
         and record['type'] in ["A","AAAA"]]
     for nameserver_ip in zone_ips:
-        domain_data.update(query(domain,nameserver_ip,["NS","A","AAAA"]));
+        domain_data.update(query(domain,nameserver_ip,record_types));
     return list(domain_data.values());
 
 def print_zone_data(domain):
