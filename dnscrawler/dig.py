@@ -5,7 +5,7 @@ from functools import lru_cache
 
 def dig_response(domain,nameserver):
     process = Popen(["dig","@"+nameserver,"-q",domain,"-t","ANY",
-        "+nostats","+nocomments","+tries="+constants.DIG_TRIES,"+time="+constants.DIG_TIMEOUT],
+        "+nostats","+nocomments","+tries="+constants.REQUEST_TRIES,"+time="+constants.REQUEST_TIMEOUT],
         stdout=PIPE, stderr=PIPE)
     return map(lambda val:val.decode('utf-8'), process.communicate())
 
@@ -33,8 +33,6 @@ def query(domain,nameserver,record_types):
 
 
 @lru_cache(maxsize=128)
-def query_root(domain,record_type):
-    root_nameserver = ["a.root-servers.net","b.root-servers.net","c.root-servers.net",
-    "d.root-servers.net","e.root-servers.net","f.root-servers.net","g.root-servers.net","h.root-servers.net",
-    "i.root-servers.net","j.root-servers.net","k.root-servers.net","l.root-servers.net"]
-    return query(domain,choice(root_nameserver),record_type)
+def query_root(domain,record_types):
+    root_nameserver = choice(list(constants.ROOT_SERVERS.values()))
+    return query(domain,root_nameserver,record_types)
