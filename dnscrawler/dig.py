@@ -1,14 +1,17 @@
 from subprocess import Popen, PIPE,call
-import constants
+from . import constants
 from random import choice
-def query(domain,nameserver,record_types):
-    # Either use aliased record names or passed record name in comparison
-    # Start dig subprocess
+from functools import lru_cache
+
+def dig_response(domain,nameserver):
     process = Popen(["dig","@"+nameserver,"-q",domain,"-t","ANY",
         "+nostats","+nocomments","+tries="+constants.DIG_TRIES,"+time="+constants.DIG_TIMEOUT],
         stdout=PIPE, stderr=PIPE)
-    stdout,stderr = map(lambda val:val.decode('utf-8'), process.communicate())
+    return map(lambda val:val.decode('utf-8'), process.communicate())
+
+def query(domain,nameserver,record_types):
     # Split dig reponse at new line
+    stdout, stderr = dig_response(domain,nameserver)
     response = stdout.splitlines()
     if(len(stderr)>0):
         raise Exception(stderr)
@@ -28,6 +31,8 @@ def query(domain,nameserver,record_types):
                 }
     return data
 
+
+@lru_cache(maxsize=128)
 def query_root(domain,record_type):
     root_nameserver = ["a.root-servers.net","b.root-servers.net","c.root-servers.net",
     "d.root-servers.net","e.root-servers.net","f.root-servers.net","g.root-servers.net","h.root-servers.net",
