@@ -1,6 +1,6 @@
 import json
 def log(obj):
-    print(json.dumps(obj,indent=1))
+    print(json.dumps(obj,indent=4))
 
 def log_records(records):
     for record in records:
