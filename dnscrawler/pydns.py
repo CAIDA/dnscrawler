@@ -6,7 +6,7 @@ from functools import lru_cache
 
 def dns_response(domain,nameserver,retries=0):
     try:  
-        request = dnsmessage.make_query(domain, rdatatype.ANY)
+        request = dnsmessage.make_query(domain, rdatatype.NS)
         response_data = dnsquery.udp(request, nameserver, float(constants.REQUEST_TIMEOUT))
         records = response_data.answer + response_data.additional + response_data.authority
     except:
