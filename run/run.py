@@ -37,4 +37,4 @@ def compile_nameserver_json(source_file,target_file):
                 infile.close()
 
 if __name__ == "__main__":
-    compile_nameserver_json("ns.txt","data/ns_data.json")
+    compile_nameserver_json("ns.txt","data/ns_data.jsonl")
