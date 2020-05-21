@@ -5,4 +5,4 @@ from dnscrawler import print_zone_data,print_zone_json
 from dnscrawler.logger import log
 
 if __name__ == "__main__":
-    print_zone_data("netflix.com")
+    print_zone_data("NS1.NUNTIUS-INCITEM.NL.")

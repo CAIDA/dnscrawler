@@ -5,3 +5,5 @@ freeze:
 	pip freeze > requirements.txt
 test:
 	python -m unittest discover
+clear:
+	rm -rf run/data/*

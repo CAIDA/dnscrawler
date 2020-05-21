@@ -2,10 +2,12 @@ from .pydns import query_root,query
 from .logger import log,log_records
 import tldextract
 # Get all zone data for a domain
-def zone_data(ns, mappedDomains=None, root=True, isTLD=False):
+def zone_data(ns, mappedDomains=None, root=True, isTLD=False, hazardous_domains=None):
     # print(ns)
     if(mappedDomains == None):
         mappedDomains = dict()
+    if(hazardous_domains == None):
+        hazardous_domains = set()
     ns = ns.lower()
     ext = tldextract.extract(ns)
     # Seperate domain into tld and domain name
@@ -29,7 +31,7 @@ def zone_data(ns, mappedDomains=None, root=True, isTLD=False):
                 "type":"tld"
             }
             # Use isTLD flag to avoid adding data for any nameservers of a tld nameserver
-            mappedDomains[nameserver_domain]["data"] = zone_data(nameserver_domain,mappedDomains,False,True)
+            mappedDomains[nameserver_domain]["data"] = zone_data(nameserver_domain,mappedDomains,False,True,hazardous_domains)['domain_data']
 
     # If domain is only a tld, only return tld data
     if len(ext.domain) == 0:
@@ -45,6 +47,8 @@ def zone_data(ns, mappedDomains=None, root=True, isTLD=False):
         }
         domain = newDomain
         domain_data = get_domain_data(domain,full_tld_data)
+        if len([record for record in domain_data.values() if record['type']=="NS"]) == 0:
+            hazardous_domains.add(domain)
     # Get data for all nameserver domains
     for record in [record for record in domain_data.values() if record['type']=="NS"]:
         record_ext = tldextract.extract(record["data"])
@@ -54,27 +58,34 @@ def zone_data(ns, mappedDomains=None, root=True, isTLD=False):
             mappedDomains[nameserver_domain] = {
                 "type":"tld" if isTLD else "nameserver"
             }
-            mappedDomains[nameserver_domain]["data"] = zone_data(nameserver_domain,mappedDomains,False)
+            mappedDomains[nameserver_domain]["data"] = zone_data(nameserver_domain,mappedDomains,False,False,hazardous_domains)['domain_data']
     # Once returned to root recombine all mappedDomains data
     if root:
         for mapped_domain_data in mappedDomains.values():
             # Read all data except for tld data
             if mapped_domain_data['type']=="nameserver":
                 # Only add A/AAAA record if tld for 'name' is same as original tld
-                for record in mapped_domain_data['data'].values():
-                    if record['type']=="NS" or get_parts_from_name(record['name'])[0]+"."==tld:
-                        domain_data.update({
-                            record['name']:record
-                        })
-    return domain_data
+                domain_data.update(mapped_domain_data['data'])
+    return {
+        "domain_data":domain_data,
+        "filtered_data":filter_domain_data(domain_data),
+        "hazardous_domains":hazardous_domains
+    }
 
 
 def print_zone_data(domain):
-    log_records(list(zone_data(domain).values()))
+    log_records(list(zone_data(domain)["domain_data"].values()))
 
 def print_zone_json(domain):
-    log(list(zone_data(domain).values()))
-
+    log(list(zone_data(domain)["domain_data"].values()))
+def get_domain_dict(domain):
+    domain_data = zone_data(domain)
+    domain_data['filtered_data'].update({
+        "hazardous_domains":list(domain_data['hazardous_domains'])
+    })
+    return {
+        domain:domain_data['filtered_data']
+    }
 # Get authoritative nameservers for a tld
 def get_tld_data(tld):
     tld_data = {}
@@ -84,7 +95,7 @@ def get_tld_data(tld):
     tld_data.update(root_response)
     # Get nameservers and ips for tld from tld nameservers
     for record in root_response.values():
-        if record['type']=="A":
+        if record['type']=="A" or record['type']=="AAAA":
             tldQuery = query(tld,record['data'],record_types)
             # Get tld nameservers from each authoritative tld nameserver
             tld_data.update(tldQuery)
@@ -108,3 +119,28 @@ def get_parts_from_name(name):
     parts = [part for part in name.strip().split('.') if len(part)>0]
     parts.reverse()
     return parts
+# Split up domain data into nameservers, tlds, ips, slds
+def filter_domain_data(domain_data):
+    nameservers = set()
+    tlds = set()
+    ipv6 = set()
+    ipv4 = set()
+    tlds = set()
+    slds = set()
+    for record in domain_data.values():
+        if record['type'] == "A":
+            ipv4.add(record['data'])
+        elif record['type'] == "AAAA":
+            ipv6.add(record['data'])
+        elif record['type'] == "NS":
+            nameservers.add(record['data'])
+            ns_ext = tldextract.extract(record['data'])
+            tlds.add(ns_ext.suffix)
+            slds.add(ns_ext.domain+"."+ns_ext.suffix)
+    return {
+        "nameservers":list(nameservers),
+        "ipv4":list(ipv4),
+        "ipv6":list(ipv6),
+        "tlds":list(tlds),
+        "slds":list(slds),
+    }
