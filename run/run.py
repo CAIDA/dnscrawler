@@ -13,10 +13,12 @@ def json_nameserver_file(nameserver,output_dir):
     filename = nameserver.replace(".","")
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    f = open(output_dir+"/"+filename+".json","w")
-    domain_dict = get_domain_dict(nameserver)
-    f.write(json.dumps(domain_dict))
-    f.close()
+    filepath = output_dir+"/"+filename+".json"
+    if not os.path.exists(filepath):
+        domain_dict = get_domain_dict(nameserver)
+        f = open(filepath,"w")
+        f.write(json.dumps(domain_dict))
+        f.close()
 
 
 def compile_nameserver_json(source_file,target_file):
