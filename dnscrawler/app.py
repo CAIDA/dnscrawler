@@ -46,9 +46,11 @@ def zone_data(ns, mappedDomains=None, root=True, isTLD=False, hazardous_domains=
             "tld_data":domain_data
         }
         domain = newDomain
-        domain_data = get_domain_data(domain,full_tld_data)
-        if len([record for record in domain_data.values() if record['type']=="NS"]) == 0:
-            hazardous_domains.add(domain)
+        # Dont query if nameserver is sld
+        if len([record for record in domain_data.values() if record['name']==domain]) == 0:
+            domain_data = get_domain_data(domain,full_tld_data)
+            if len([record for record in domain_data.values() if record['type']=="NS"]) == 0:
+                hazardous_domains.add(domain)
     # Get data for all nameserver domains
     for record in [record for record in domain_data.values() if record['type']=="NS"]:
         record_ext = tldextract.extract(record["data"])
