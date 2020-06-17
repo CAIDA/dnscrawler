@@ -1,11 +1,13 @@
 from .pydns import query_root,query
 from .logger import log,log_records
 import tldextract
+from itertools import chain
 # Get all zone data for a domain
 def zone_data(ns, mappedDomains=None, root=True, isTLD=False, hazardous_domains=None):
-    # print(ns)
+    # If mappedDomains (cache of all zone data) is null, initialize dict (done at beginning)
     if(mappedDomains == None):
         mappedDomains = dict()
+    # If hazardous_domains (set of all hazarous domain) is null, initialize dict (done at beginning)
     if(hazardous_domains == None):
         hazardous_domains = set()
     ns = ns.lower()
@@ -48,7 +50,7 @@ def zone_data(ns, mappedDomains=None, root=True, isTLD=False, hazardous_domains=
         domain = newDomain
         # Dont query if nameserver is sld
         if len([record for record in domain_data.values() if record['name']==domain]) == 0:
-            domain_data = get_domain_data(domain,full_tld_data)
+            domain_data = get_domain_data(domain,full_tld_data,mappedDomains)
             if len([record for record in domain_data.values() if record['type']=="NS"]) == 0:
                 hazardous_domains.add(domain)
     # Get data for all nameserver domains
@@ -103,16 +105,28 @@ def get_tld_data(tld):
             tld_data.update(tldQuery)
     return tld_data
 # Get authoritative nameservers from non tld domain
-def get_domain_data(domain, full_tld_data):
+def get_domain_data(domain, full_tld_data,mappedDomains):
     record_types = ("NS","A","AAAA")
     tld = full_tld_data["tld"]
     tld_data = full_tld_data["tld_data"]
     domain_data = {}
-    tld_nameservers = [record['data'].lower() for record in tld_data.values() if record['name']==tld]
-    tld_ips = [record['data'] for record in tld_data.values() if record['name'].lower() in tld_nameservers 
-        and record['type'].upper() in ["A","AAAA"]]
-    for nameserver_ip in tld_ips:
-        domainQuery = query(domain,nameserver_ip,record_types)
+    # Get all records from mapped data
+    mapped_data = list(chain.from_iterable([domain['data'].values() for domain in mappedDomains.values() if "data" in domain]))
+    # Get nameservers from ns records
+    tld_nameservers = set([record['data'].lower() for record in tld_data.values() if record['name']==tld and record['type']=="NS"])
+    # Make a dictionary of nameservers and ips; if any nameserver doesnt have an ip, recurse to get ip data
+    nameserver_data ={}
+    for nameserver in tld_nameservers:
+        nameserver_data[nameserver.lower()] = []
+    for record in mapped_data:
+        name=record['name'].lower()
+        if name in nameserver_data and record['type'].upper() in ["A","AAAA"]:
+            nameserver_data[name].append(record['data'])
+    # Check if any ns doesnt have ips
+    nameserver_ips = set(chain.from_iterable(nameserver_data.values()))
+
+    for ip in nameserver_ips:
+        domainQuery = query(domain,ip,record_types)
         # log(domainQuery)
         domain_data.update(domainQuery)
     return domain_data

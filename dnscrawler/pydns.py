@@ -1,8 +1,12 @@
 from dns import query as dnsquery, message as dnsmessage, rdatatype
 from random import choice
-from . import constants
-from .logger import log
 from functools import lru_cache
+if __name__ == "pydns":
+    import constants
+    from logger import log
+else:
+    from . import constants
+    from .logger import log
 
 def dns_response(domain,nameserver,retries=0):
     try:  

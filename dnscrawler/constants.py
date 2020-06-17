@@ -13,4 +13,5 @@ ROOT_SERVERS={
     "j.root-servers.net":"192.58.128.30",
     "k.root-servers.net":"193.0.14.129",
     "l.root-servers.net":"199.7.83.42",
+    "m.root-servers.net":"202.12.27.33"
 }
