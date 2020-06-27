@@ -1,0 +1,39 @@
+function map_name(name, output_dict, query_root=false)
+    initialize auth_ns to None
+    if name doesnt end in period
+        append period to name
+    initialize name_parts to name split by period with empty strings and all subdomains removed
+    initalize isTLD to true if length of name_parts is 1
+    if isTLD
+        if query_root
+            initalize records to query_root(name)
+            return parse(records, name)
+        else
+            auth_ns = map_name(name, output_dict, true)
+    else 
+        initalize superdomain to name from all but first element in name parts (ex. ns1.example.com -> example.com)
+        auth_ns = map_name(superdomain, output_dict)
+    initialize new_auth_ns to empty dict
+    for each nameserver in auth_ns
+        for each ip in the nameserver_ip_set
+            initialize records to query(name, ip)
+            combine new_auth_ns and parse(records, name)
+    if new_auth_ns is still empty mark domain as hazardous
+    if isTLD is false
+        combine new_auth_ns and output_dict
+    return new_auth_ns
+
+function parse(records, name)
+    initialize auth_ns to empty dict
+    initalize ns_set to empty set
+    initalize ip_dict to empty dict
+    for each record
+        if record is ns for name add it to ns_set
+        else if record is ip add it to ip_dict keyed by ns
+    for each ns in ns_set
+        if ns in ip_dict
+            add to ip_dict ip set to auth_ns keyed by ns
+        else
+            add ips from map_name(ns) to auth_ns keyed by ns
+    return auth_ns
+   

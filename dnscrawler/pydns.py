@@ -9,15 +9,18 @@ else:
     from .logger import log
 
 def dns_response(domain,nameserver,retries=0):
-    try:  
-        request = dnsmessage.make_query(domain, rdatatype.NS)
-        response_data = dnsquery.udp(request, nameserver, float(constants.REQUEST_TIMEOUT))
-        records = response_data.answer + response_data.additional + response_data.authority
-    except:
-        if retries < int(constants.REQUEST_TRIES):
-            return dns_response(domain,nameserver,retries+1)
-        else:
-            return ""
+    record_types = (rdatatype.NS, rdatatype.A, rdatatype.AAAA)
+    records = []
+    for rtype in record_types:
+        try:  
+            request = dnsmessage.make_query(domain, rtype)
+            response_data = dnsquery.udp(request, nameserver, float(constants.REQUEST_TIMEOUT))
+            records += response_data.answer + response_data.additional + response_data.authority
+        except:
+            if retries < int(constants.REQUEST_TRIES):
+                return dns_response(domain,nameserver,retries+1)
+            else:
+                return ""
     return "\n".join([record.to_text() for record in records])
 def query(domain,nameserver,record_types):
     raw_response = dns_response(domain,nameserver)

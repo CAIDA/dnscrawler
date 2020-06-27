@@ -5,7 +5,7 @@ import sys
 import shutil
 import os
 sys.path.append("../")
-from dnscrawler import print_zone_data,print_zone_json,get_domain_dict
+from dnscrawler import DNSResolver
 from dnscrawler.logger import log
 from glob import glob
 
@@ -15,7 +15,8 @@ def json_nameserver_file(nameserver,output_dir):
         os.makedirs(output_dir)
     filepath = output_dir+"/"+filename+".json"
     if not os.path.exists(filepath):
-        domain_dict = get_domain_dict(nameserver)
+        resolver = DNSResolver()
+        domain_dict = resolver.get_domain_dict(nameserver)
         f = open(filepath,"w")
         f.write(json.dumps(domain_dict))
         f.close()
@@ -39,4 +40,4 @@ def compile_nameserver_json(source_file,target_file):
                 infile.close()
 
 if __name__ == "__main__":
-    compile_nameserver_json("ns.txt","data/ns_data.jsonl")
+    compile_nameserver_json("gov.txt","data/ns_data.jsonl")

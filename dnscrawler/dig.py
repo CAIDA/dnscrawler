@@ -11,7 +11,7 @@ def dig_response(domain,nameserver):
 
 def query(domain,nameserver,record_types):
     # Split dig reponse at new line
-    stdout, stderr = dig_response(domain,nameserver)
+    stdout, stderr = dig_response(str(domain),str(nameserver))
     response = stdout.splitlines()
     if(len(stderr)>0):
         raise Exception(stderr)

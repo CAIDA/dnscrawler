@@ -1,5 +1,5 @@
 REQUEST_TIMEOUT="2"
-REQUEST_TRIES="1"
+REQUEST_TRIES="2"
 ROOT_SERVERS={
     "a.root-servers.net":"198.41.0.4",
     "b.root-servers.net":"199.9.14.201",
