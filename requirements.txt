@@ -2,6 +2,10 @@ certifi==2020.4.5.1
 chardet==3.0.4
 dnspython==1.16.0
 idna==2.9
+numpy==1.18.4
+pandas==1.0.3
+python-dateutil==2.8.1
+pytz==2020.1
 requests==2.23.0
 requests-file==1.5.1
 six==1.14.0
