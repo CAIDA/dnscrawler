@@ -1,1 +1,1 @@
-{"hazardous_domains": [], "ns": ["hee1.icsd.hawaii.gov.", "hee2.icsd.hawaii.gov."], "ipv4": ["132.160.216.22", "132.160.216.4"], "ipv6": [], "tld": ["gov."], "sld": ["hawaii.gov.", "myhawaii.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}
+{"hazardous_domains": [], "ns": ["hee2.icsd.hawaii.gov.", "hee1.icsd.hawaii.gov."], "ipv4": ["132.160.216.22", "132.160.216.4"], "ipv6": [], "tld": ["gov."], "sld": ["myhawaii.gov.", "hawaii.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}

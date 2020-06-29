@@ -1,1 +1,1 @@
-{"hazardous_domains": ["state.la.us.", "la.us."], "ns": ["ns2.lded.state.la.us.", "ns1.lded.state.la.us."], "ipv4": [], "ipv6": [], "tld": ["gov.", "la.us."], "sld": ["louisianamusic.gov.", "state.la.us."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": ["us."], "ps_sld": ["la.us."]}
+{"hazardous_domains": ["state.la.us.", "la.us."], "ns": ["ns1.lded.state.la.us.", "ns2.lded.state.la.us."], "ipv4": [], "ipv6": [], "tld": ["gov.", "la.us."], "sld": ["state.la.us.", "louisianamusic.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": ["us."], "ps_sld": ["la.us."]}

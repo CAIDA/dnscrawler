@@ -1,1 +1,1 @@
-{"hazardous_domains": [], "ns": ["ns1.dahlonega.gov.", "ns2.dahlonega.gov."], "ipv4": ["69.16.218.106"], "ipv6": [], "tld": ["gov."], "sld": ["dahlonega.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}
+{"hazardous_domains": [], "ns": ["ns2.dahlonega.gov.", "ns1.dahlonega.gov."], "ipv4": ["69.16.218.106"], "ipv6": [], "tld": ["gov."], "sld": ["dahlonega.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}

@@ -1,1 +1,1 @@
-{"hazardous_domains": [], "ns": ["ns1.rsa-al.gov.", "ns2.rsa-al.gov."], "ipv4": ["74.254.150.10", "74.254.150.13", "74.254.150.11"], "ipv6": [], "tld": ["gov."], "sld": ["rsa-al.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}
+{"hazardous_domains": [], "ns": ["ns2.rsa-al.gov.", "ns1.rsa-al.gov."], "ipv4": ["74.254.150.11", "74.254.150.10", "74.254.150.13"], "ipv6": [], "tld": ["gov."], "sld": ["rsa-al.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}

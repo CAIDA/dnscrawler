@@ -1,1 +1,1 @@
-{"hazardous_domains": ["aladna.gov."], "ns": ["ns2.alacourt.gov.", "ns1.alacourt.gov."], "ipv4": ["72.159.229.134", "72.159.229.133"], "ipv6": [], "tld": ["gov."], "sld": ["aladna.gov.", "alacourt.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}
+{"hazardous_domains": ["aladna.gov."], "ns": ["ns1.alacourt.gov.", "ns2.alacourt.gov."], "ipv4": ["72.159.229.133", "72.159.229.134"], "ipv6": [], "tld": ["gov."], "sld": ["aladna.gov.", "alacourt.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}

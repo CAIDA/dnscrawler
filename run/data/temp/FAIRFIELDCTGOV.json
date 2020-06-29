@@ -1,1 +1,1 @@
-{"hazardous_domains": [], "ns": ["europa.chime.org.", "saturn.chime.org."], "ipv4": ["170.163.248.3", "170.163.248.189", "170.163.248.30"], "ipv6": [], "tld": ["org.", "gov."], "sld": ["fairfieldct.gov.", "chime.org."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}
+{"hazardous_domains": [], "ns": ["europa.chime.org.", "saturn.chime.org."], "ipv4": ["170.163.248.189", "170.163.248.30", "170.163.248.3"], "ipv6": [], "tld": ["gov.", "org."], "sld": ["fairfieldct.gov.", "chime.org."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}

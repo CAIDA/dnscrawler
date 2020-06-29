@@ -1,1 +1,1 @@
-{"hazardous_domains": ["tx.us.", "state.tx.us."], "ns": ["ns.capnet.state.tx.us.", "ns5.capnet.state.tx.us."], "ipv4": [], "ipv6": [], "tld": ["gov.", "tx.us."], "sld": ["txdmv.gov.", "state.tx.us."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": ["us."], "ps_sld": ["tx.us."]}
+{"hazardous_domains": ["tx.us.", "state.tx.us."], "ns": ["ns.capnet.state.tx.us.", "ns5.capnet.state.tx.us."], "ipv4": [], "ipv6": [], "tld": ["tx.us.", "gov."], "sld": ["txdmv.gov.", "state.tx.us."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": ["us."], "ps_sld": ["tx.us."]}

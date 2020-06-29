@@ -1,1 +1,1 @@
-{"hazardous_domains": [], "ns": ["publicdns2.templetx.gov.", "publicdns1.templetx.gov."], "ipv4": ["12.49.57.34", "208.90.191.30", "67.79.126.62"], "ipv6": [], "tld": ["gov."], "sld": ["templetx.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}
+{"hazardous_domains": [], "ns": ["publicdns1.templetx.gov.", "publicdns2.templetx.gov."], "ipv4": ["208.90.191.30", "67.79.126.62", "12.49.57.34"], "ipv6": [], "tld": ["gov."], "sld": ["templetx.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}

@@ -1,1 +1,1 @@
-{"hazardous_domains": [], "ns": ["ns2.ksdoim.com.", "ns1.ksdoim.com."], "ipv4": ["70.166.248.101", "70.166.248.102"], "ipv6": [], "tld": ["com.", "gov."], "sld": ["ksdoim.com.", "ksready.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}
+{"hazardous_domains": [], "ns": ["ns1.ksdoim.com.", "ns2.ksdoim.com."], "ipv4": ["70.166.248.102", "70.166.248.101"], "ipv6": [], "tld": ["gov.", "com."], "sld": ["ksdoim.com.", "ksready.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}

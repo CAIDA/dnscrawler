@@ -1,1 +1,1 @@
-{"hazardous_domains": [], "ns": ["ns3.troymi.gov.", "ns2.troymi.gov."], "ipv4": ["151.181.38.98", "50.197.113.33", "3.134.56.143"], "ipv6": [], "tld": ["gov."], "sld": ["troymi.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}
+{"hazardous_domains": [], "ns": ["ns3.troymi.gov.", "ns2.troymi.gov."], "ipv4": ["50.197.113.33", "3.134.56.143", "151.181.38.98"], "ipv6": [], "tld": ["gov."], "sld": ["troymi.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}

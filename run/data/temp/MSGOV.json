@@ -1,1 +1,1 @@
-{"hazardous_domains": ["ms.us.", "state.ms.us."], "ns": ["ns1.its.state.ms.us.", "sun1.its.state.ms.us."], "ipv4": [], "ipv6": [], "tld": ["gov.", "ms.us."], "sld": ["ms.gov.", "state.ms.us."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": ["us."], "ps_sld": ["ms.us."]}
+{"hazardous_domains": ["ms.us.", "state.ms.us."], "ns": ["ns1.its.state.ms.us.", "sun1.its.state.ms.us."], "ipv4": [], "ipv6": [], "tld": ["ms.us.", "gov."], "sld": ["ms.gov.", "state.ms.us."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": ["us."], "ps_sld": ["ms.us."]}

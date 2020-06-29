@@ -1,1 +1,1 @@
-{"hazardous_domains": ["ny.us.", "buffalo.ny.us."], "ns": ["ns2.ci.buffalo.ny.us.", "ns1.ci.buffalo.ny.us."], "ipv4": [], "ipv6": [], "tld": ["gov.", "ny.us."], "sld": ["buffalo.ny.us.", "buffalony.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": ["us."], "ps_sld": ["ny.us."]}
+{"hazardous_domains": ["buffalo.ny.us.", "ny.us."], "ns": ["ns1.ci.buffalo.ny.us.", "ns2.ci.buffalo.ny.us."], "ipv4": [], "ipv6": [], "tld": ["ny.us.", "gov."], "sld": ["buffalo.ny.us.", "buffalony.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": ["us."], "ps_sld": ["ny.us."]}

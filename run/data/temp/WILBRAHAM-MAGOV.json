@@ -1,1 +1,1 @@
-{"hazardous_domains": [], "ns": ["ns1.towhost.net.", "ns2.towhost.net."], "ipv4": ["8.20.190.216", "208.90.191.33", "23.253.231.7"], "ipv6": [], "tld": ["net.", "gov."], "sld": ["wilbraham-ma.gov.", "towhost.net."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}
+{"hazardous_domains": [], "ns": ["ns1.towhost.net.", "ns2.towhost.net."], "ipv4": ["23.253.231.7", "208.90.191.33", "8.20.190.216"], "ipv6": [], "tld": ["gov.", "net."], "sld": ["towhost.net.", "wilbraham-ma.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}

@@ -1,1 +1,1 @@
-{"hazardous_domains": [], "ns": ["ns1.copperascovetx.gov.", "ns2.copperascovetx.gov."], "ipv4": ["67.79.126.20", "67.79.126.25"], "ipv6": [], "tld": ["gov."], "sld": ["copperascovetx.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}
+{"hazardous_domains": [], "ns": ["ns2.copperascovetx.gov.", "ns1.copperascovetx.gov."], "ipv4": ["67.79.126.20", "67.79.126.25"], "ipv6": [], "tld": ["gov."], "sld": ["copperascovetx.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}

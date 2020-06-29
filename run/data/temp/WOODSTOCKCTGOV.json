@@ -1,1 +1,1 @@
-{"hazardous_domains": [], "ns": ["ns.savageweb.net.", "ns1.savageweb.net."], "ipv4": ["67.43.12.120", "67.43.12.241", "67.43.12.20"], "ipv6": [], "tld": ["net.", "gov."], "sld": ["woodstockct.gov.", "savageweb.net."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}
+{"hazardous_domains": [], "ns": ["ns1.savageweb.net.", "ns.savageweb.net."], "ipv4": ["67.43.12.241", "67.43.12.20", "67.43.12.120"], "ipv6": [], "tld": ["gov.", "net."], "sld": ["savageweb.net.", "woodstockct.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}

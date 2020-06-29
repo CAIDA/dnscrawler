@@ -1,1 +1,1 @@
-{"hazardous_domains": ["vt.us.", "state.vt.us."], "ns": ["ns1.state.vt.us.", "ns2.state.vt.us."], "ipv4": [], "ipv6": [], "tld": ["vt.us.", "gov."], "sld": ["state.vt.us.", "newengland511.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": ["us."], "ps_sld": ["vt.us."]}
+{"hazardous_domains": ["state.vt.us.", "vt.us."], "ns": ["ns1.state.vt.us.", "ns2.state.vt.us."], "ipv4": [], "ipv6": [], "tld": ["gov.", "vt.us."], "sld": ["newengland511.gov.", "state.vt.us."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": ["us."], "ps_sld": ["vt.us."]}

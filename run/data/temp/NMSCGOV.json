@@ -1,1 +1,1 @@
-{"hazardous_domains": [], "ns": ["ns2.nmsc.gov.", "ns1.nmsc.gov.", "ns3.nmsc.gov."], "ipv4": ["50.79.80.196", "50.79.80.195", "50.79.80.193"], "ipv6": [], "tld": ["gov."], "sld": ["nmsc.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}
+{"hazardous_domains": [], "ns": ["ns3.nmsc.gov.", "ns2.nmsc.gov.", "ns1.nmsc.gov."], "ipv4": ["50.79.80.195", "50.79.80.196", "50.79.80.193"], "ipv6": [], "tld": ["gov."], "sld": ["nmsc.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}

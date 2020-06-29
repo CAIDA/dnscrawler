@@ -1,1 +1,1 @@
-{"hazardous_domains": [], "ns": ["ns1.cstx.gov.", "ns2.cstx.gov."], "ipv4": ["199.5.231.6", "199.5.231.4", "155.254.144.125"], "ipv6": [], "tld": ["gov."], "sld": ["cstx.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}
+{"hazardous_domains": [], "ns": ["ns1.cstx.gov.", "ns2.cstx.gov."], "ipv4": ["155.254.144.125", "199.5.231.6", "199.5.231.4"], "ipv6": [], "tld": ["gov."], "sld": ["cstx.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}

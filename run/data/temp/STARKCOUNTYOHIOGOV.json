@@ -1,1 +1,1 @@
-{"hazardous_domains": ["oh.us.", "stark.oh.us."], "ns": ["ns1.co.stark.oh.us.", "ns2.co.stark.oh.us."], "ipv4": [], "ipv6": [], "tld": ["oh.us.", "gov."], "sld": ["stark.oh.us.", "starkcountyohio.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": ["us."], "ps_sld": ["oh.us."]}
+{"hazardous_domains": ["oh.us.", "stark.oh.us."], "ns": ["ns2.co.stark.oh.us.", "ns1.co.stark.oh.us."], "ipv4": [], "ipv6": [], "tld": ["oh.us.", "gov."], "sld": ["starkcountyohio.gov.", "stark.oh.us."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": ["us."], "ps_sld": ["oh.us."]}

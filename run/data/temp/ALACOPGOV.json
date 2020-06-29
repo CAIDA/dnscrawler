@@ -1,1 +1,1 @@
-{"hazardous_domains": [], "ns": ["edns1.alacop.gov.", "edns2.alacop.gov."], "ipv4": ["216.226.182.136", "104.145.180.10", "104.145.180.11"], "ipv6": [], "tld": ["gov."], "sld": ["alacop.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}
+{"hazardous_domains": [], "ns": ["edns2.alacop.gov.", "edns1.alacop.gov."], "ipv4": ["104.145.180.11", "216.226.182.136", "104.145.180.10"], "ipv6": [], "tld": ["gov."], "sld": ["alacop.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}

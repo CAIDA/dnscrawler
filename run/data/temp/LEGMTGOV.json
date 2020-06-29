@@ -1,1 +1,1 @@
-{"hazardous_domains": [], "ns": ["mtdnspri.mt.gov.", "mtdnstri.mt.gov.", "mtdnssec.mt.gov."], "ipv4": ["161.7.38.10", "161.7.129.10", "161.7.38.11"], "ipv6": [], "tld": ["gov."], "sld": ["mt.gov.", "legmt.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}
+{"hazardous_domains": [], "ns": ["mtdnspri.mt.gov.", "mtdnstri.mt.gov.", "mtdnssec.mt.gov."], "ipv4": ["161.7.38.11", "161.7.38.10", "161.7.129.10"], "ipv6": [], "tld": ["gov."], "sld": ["legmt.gov.", "mt.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}

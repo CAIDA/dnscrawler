@@ -1,1 +1,1 @@
-{"hazardous_domains": [], "ns": ["spdns5.pima.gov.", "spdns8.pima.gov."], "ipv4": ["159.233.2.2", "159.233.4.92", "159.233.38.92"], "ipv6": [], "tld": ["gov."], "sld": ["pima.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}
+{"hazardous_domains": [], "ns": ["spdns8.pima.gov.", "spdns5.pima.gov."], "ipv4": ["159.233.2.2", "159.233.4.92", "159.233.38.92"], "ipv6": [], "tld": ["gov."], "sld": ["pima.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}

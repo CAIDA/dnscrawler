@@ -1,1 +1,1 @@
-{"hazardous_domains": [], "ns": ["dns1.pki.gov.", "dns2.pki.gov."], "ipv4": ["199.167.93.100", "199.167.92.100"], "ipv6": ["2620:9b:c000:9200:12::30", "2620:9b:c001:9300:22::30"], "tld": ["gov."], "sld": ["pki.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}
+{"hazardous_domains": [], "ns": ["dns2.pki.gov.", "dns1.pki.gov."], "ipv4": ["199.167.92.100", "199.167.93.100"], "ipv6": ["2620:9b:c001:9300:22::30", "2620:9b:c000:9200:12::30"], "tld": ["gov."], "sld": ["pki.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}

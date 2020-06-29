@@ -1,1 +1,1 @@
-{"hazardous_domains": [], "ns": ["nameserver2.mohave.gov.", "nameserver3.mohave.gov."], "ipv4": ["199.104.207.15", "199.104.207.10", "199.104.207.63"], "ipv6": [], "tld": ["gov."], "sld": ["mohave.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}
+{"hazardous_domains": [], "ns": ["nameserver2.mohave.gov.", "nameserver3.mohave.gov."], "ipv4": ["199.104.207.63", "199.104.207.10", "199.104.207.15"], "ipv6": [], "tld": ["gov."], "sld": ["mohave.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}

@@ -1,1 +1,1 @@
-{"hazardous_domains": ["fl.us.", "state.fl.us."], "ns": ["blade.doacs.state.fl.us.", "thor.doacs.state.fl.us."], "ipv4": [], "ipv6": [], "tld": ["fl.us.", "gov."], "sld": ["state.fl.us.", "fldacs.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": ["us."], "ps_sld": ["fl.us."]}
+{"hazardous_domains": ["fl.us.", "state.fl.us."], "ns": ["thor.doacs.state.fl.us.", "blade.doacs.state.fl.us."], "ipv4": [], "ipv6": [], "tld": ["gov.", "fl.us."], "sld": ["fldacs.gov.", "state.fl.us."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": ["us."], "ps_sld": ["fl.us."]}

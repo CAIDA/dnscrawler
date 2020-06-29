@@ -1,1 +1,1 @@
-{"hazardous_domains": [], "ns": ["ns4.tsptest.gov.", "ns3.tsptest.gov."], "ipv4": ["74.113.204.36", "74.113.206.36"], "ipv6": [], "tld": ["gov."], "sld": ["tsptest.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}
+{"hazardous_domains": [], "ns": ["ns3.tsptest.gov.", "ns4.tsptest.gov."], "ipv4": ["74.113.204.36", "74.113.206.36"], "ipv6": [], "tld": ["gov."], "sld": ["tsptest.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}

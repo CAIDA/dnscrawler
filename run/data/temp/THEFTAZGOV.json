@@ -1,1 +1,1 @@
-{"hazardous_domains": [], "ns": ["ns1.azag.gov."], "ipv4": ["159.87.87.50", "159.87.62.150"], "ipv6": [], "tld": ["gov."], "sld": ["theftaz.gov.", "azag.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}
+{"hazardous_domains": [], "ns": ["ns1.azag.gov."], "ipv4": ["159.87.62.150", "159.87.87.50"], "ipv6": [], "tld": ["gov."], "sld": ["theftaz.gov.", "azag.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}

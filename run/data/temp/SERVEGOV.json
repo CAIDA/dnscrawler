@@ -1,1 +1,1 @@
-{"hazardous_domains": [], "ns": ["dns02.cns.gov.", "dns01.cns.gov."], "ipv4": ["13.72.15.107", "152.180.8.143", "152.180.134.207"], "ipv6": [], "tld": ["gov."], "sld": ["cns.gov.", "serve.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}
+{"hazardous_domains": [], "ns": ["dns02.cns.gov.", "dns01.cns.gov."], "ipv4": ["152.180.134.207", "152.180.8.143", "13.72.15.107"], "ipv6": [], "tld": ["gov."], "sld": ["cns.gov.", "serve.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}
