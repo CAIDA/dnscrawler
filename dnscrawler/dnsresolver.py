@@ -1,4 +1,5 @@
 from dns import query as dnsquery, message as dnsmessage, rdatatype
+from collections import defaultdict
 from functools import lru_cache
 from random import choice
 from tldextract import extract
@@ -15,7 +16,7 @@ class DNSResolver:
     def __init__(self):
         self.active_resolutions = set()
         self.past_resolutions = {}
-        self.nameservers = {
+        self.nameservers = defaultdict(set,{
             "a.root-servers.net.":{"198.41.0.4"},
             "b.root-servers.net.":{"199.9.14.201"},
             "c.root-servers.net.":{"192.33.4.12"},
@@ -29,7 +30,7 @@ class DNSResolver:
             "k.root-servers.net.":{"193.0.14.129"},
             "l.root-servers.net.":{"199.7.83.42"},
             "m.root-servers.net.":{"202.12.27.33"},
-        }
+        })
     # Return the ips and ns records that are authoritative for a hostname
     # current_name -  The hostname to select NS records for, from a given DNS query
     # records - The results of a pydns query
@@ -46,7 +47,7 @@ class DNSResolver:
         ip_dict = self.nameservers
         for record in records:
             # Add all nameservers for current_name to ns_set
-            if record['type'] == 'NS' and record['name'] == current_name:
+            if record['type'] == 'NS' and record['name'].lower() in current_name:
                 # Convert data to lower case for sake of uniformity
                 ns_set.add(record['data'].lower())
                 # If output_dict is provided (not parsing tld data) then store the ns data in output_dict
@@ -56,7 +57,7 @@ class DNSResolver:
             elif record['type'] in ('A','AAAA'):
                 # Add all ips for a hostname to a set (ex. 'ns1.example.com':{1.1.1.0, 1.1.1.1})
                 # Convert data to lower case for sake of uniformity
-                ip_dict.setdefault(record['name'], set()).add(record['data'].lower())
+                ip_dict[record['name'].lower()].add(record['data'].lower())
                 # If output_dict is provided (not parsing tld data) then store the ip data in output_dict
                 if output_dict is not None:
                     # If A record then store in ipv4, else store in ipv6
@@ -68,8 +69,8 @@ class DNSResolver:
                         output_dict[prefix+'ipv6'].add(record['data'].lower())
                     # If an A/AAAA record exists for the current name, add it straight to output_dict
                     # so that it can be parsed for tlds and slds
-                    if record['name'] == current_name:
-                        output_dict.setdefault(record['name'], set()).add(record['data'].lower())
+                    if record['name'].lower() == current_name:
+                        output_dict[record['name'].lower()].add(record['data'].lower())
         # Compile sets of all ips for authoritative ns into auth_ns
         for ns_name in ns_set:
             # Seperate ns_name and current_name by domain and suffix in order to avoid
@@ -80,29 +81,29 @@ class DNSResolver:
             # Get sanitized name (domain + suffix) for checking if in active_resolutions
             ns_name_parts = [part for part in extracted_ns.domain.split('.')+extracted_ns.suffix.split('.') if len(part) > 0]
             current_name_parts = [part for part in extracted_current.domain.split('.')+extracted_current.suffix.split('.') if len(part) > 0]
-            sanitized_ns_name = ".".join(ns_name_parts)+"."
-            sanitized_current_name = ".".join(current_name_parts)+"."
+            sanitized_ns_name = f"{'.'.join(ns_name_parts)}."
+            sanitized_current_name = f"{'.'.join(current_name_parts)}."
             # Add TLD and SLD data to output_dict
             if output_dict is not None:
                 # Add data for each ns
                 if len(extracted_ns.domain) > 0:
-                    output_dict[prefix+'sld'].add(extracted_ns.domain+'.'+extracted_ns.suffix+'.')
-                    output_dict[prefix+'tld'].add(extracted_ns.suffix+'.')
+                    output_dict[prefix+'sld'].add(f"{extracted_ns.domain}.{extracted_ns.suffix}.")
+                    output_dict[prefix+'tld'].add(f"{extracted_ns.suffix}.")
                 elif len(ns_name_parts) > 1:
                     output_dict[prefix+'sld'].add(sanitized_ns_name)
-                    output_dict[prefix+'tld'].add(".".join(ns_name_parts[1:])+".")
+                    output_dict[prefix+'tld'].add(f"{'.'.join(ns_name_parts[1:])}.")
                 else:
-                    output_dict[prefix+'tld'].add(ns_name_parts[0]+'.')
+                    output_dict[prefix+'tld'].add(f"{ns_name_parts[0]}.")
 
                 # Add data for current_name
                 if len(extracted_current.domain) > 0:
-                    output_dict[prefix+'sld'].add(extracted_current.domain+'.'+extracted_current.suffix+'.')
-                    output_dict[prefix+'tld'].add(extracted_current.suffix+'.')
+                    output_dict[prefix+'sld'].add(f"{extracted_current.domain}.{extracted_current.suffix}.")
+                    output_dict[prefix+'tld'].add(f"{extracted_current.suffix}.")
                 elif len(current_name_parts) > 1:
                     output_dict[prefix+'sld'].add(sanitized_current_name)
-                    output_dict[prefix+'tld'].add(".".join(current_name_parts[1:])+".")
+                    output_dict[prefix+'tld'].add(f"{'.'.join(current_name_parts[1:])}.")
                 else:
-                    output_dict[prefix+'tld'].add(current_name_parts[0]+'.')
+                    output_dict[prefix+'tld'].add(f"{current_name_parts[0]}.")
             if ns_name in ip_dict:
                 # If ip for the hostname is provided in the additional section then use that
                 auth_ns[ns_name] = ip_dict[ns_name].copy()
@@ -126,10 +127,11 @@ class DNSResolver:
         return auth_ns
 
     # Recursively resolve a given hostname
-    # name - The hostname
+    # original_name - The hostname
     # output_dict - Dictionary to store all ns, tld, sld, ip, and hazardous_domain data
     # query_root - Flag to determine if to query root-servers
-    def map_name(self, name, output_dict, prefix=""):
+    # name - A truncated for, of the name used as the default for handling queries
+    def map_name(self, original_name, output_dict, prefix="", name=None):
         # Initialize auth_ns to store the authoritative nameservers to query in each iteration
         auth_ns = None
         # When output_dict is empty from first creation, 
@@ -148,12 +150,23 @@ class DNSResolver:
             output_dict['ps_ipv6'] = set()
             output_dict['ps_tld'] = set()
             output_dict['ps_sld'] = set()
-        # Convert name to lowercase (for uniformity) and use tldextract to get just domain + suffix for each name
-        extracted_name = extract(name.lower())
+
+        # Extract and generate name_parts from truncated name if available
+        # Else use original_name
+        if name:
+            # use tldextract to get just domain + suffix for each name
+            extracted_name = extract(name)
+        else:
+            # Convert original name to lowercase and add trailing period for uniformity
+            # Save original for querying where minimized name doesnt work
+            original_name =  original_name.lower()
+            if original_name[-1] != ".":
+                original_name = f"{original_name}."
+            extracted_name = extract(original_name)
         # Split domain and suffix by periods and remove any empty strings
         name_parts = [part for part in extracted_name.domain.split('.')+extracted_name.suffix.split('.') if len(part) > 0]
         # Set name to recombined name_parts and add trailing period
-        name = ".".join(name_parts)+"."
+        name = f"{'.'.join(name_parts)}."
         # Cache past resolutions to prevent cyclic dependencies and reduce queries
         if name in self.past_resolutions:
             return self.past_resolutions[name]
@@ -163,17 +176,17 @@ class DNSResolver:
         isSuffix = extracted_name.domain == ''
         if isTLD:
             # Base case: When only tld query for root-server
-            records = pydns.query_root(domain=name, record_types=("NS","A","AAAA")).values()
+            records = pydns.query_root(domain=name).values()
             # Do not provide output_dict for parse as tlds do not need to be recursed
             return self.parse(name, records)
         else:
             # Create name from every part of current name except first (ex. ns1.example.com -> example.com)
-            superdomain = '.'.join(name_parts[1:])+'.'
+            superdomain = f"{'.'.join(name_parts[1:])}."
             # These are the authoritative nameservers from the super domain
             # (ie. com => a.gtld-servers.net => google.com)
             if extracted_name.domain == '':
                 prefix = "ps_"
-            old_auth_ns = self.map_name(name=superdomain, output_dict=output_dict, prefix=prefix);
+            old_auth_ns = self.map_name(name=superdomain, output_dict=output_dict, prefix=prefix, original_name=original_name);
 
         # Authoritative nameserver querying split into two parts: First query the authoritative nameservers 
         # for the superdomain to get the the authoritative nameservers for the domain, then querying process
@@ -183,23 +196,26 @@ class DNSResolver:
             # Query name for each ip for each ns in super_auth_ns
             for ip_set in old_auth_ns.values():
                 for ip in ip_set:
-                    records = pydns.query(domain=name, nameserver=ip, record_types=("NS","A","AAAA")).values()
+                    query_name = name
+                    records = pydns.query(domain=query_name, nameserver=ip).values()
+                    if len(records) == 0 and name != original_name:
+                        query_name = original_name
+                        records = pydns.query(domain=query_name, nameserver=ip).values()
                     # If isTLD do not provide output_dict for parse as tlds do not need to be recursed
-                    new_auth_ns.update(self.parse(name, records, output_dict if not isTLD else None, prefix))
-
+                    new_auth_ns.update(self.parse(query_name, records, output_dict if not isTLD else None, prefix))
             # If auth_ns is still empty => query returned no nameservers so domain is hazardous,
             # unless a cyclic dependency has occurred, in which case nameserver will be added to nonhazardous domains
             if len(new_auth_ns) == 0 and name not in output_dict['nonhazardous_domains']:
                 # Add name to output_dicts hazardous set
                 output_dict['hazardous_domains'].add(name)
                 if len(extracted_name.domain) > 0:
-                    output_dict[prefix+'sld'].add(extracted_name.domain+'.'+extracted_name.suffix+'.')
-                    output_dict[prefix+'tld'].add(extracted_name.suffix+'.')
+                    output_dict[prefix+'sld'].add(f"{extracted_name.domain}.{extracted_name.suffix}.")
+                    output_dict[prefix+'tld'].add(f"{extracted_name.suffix}.")
                 elif len(name_parts) > 1:
                     output_dict[prefix+'sld'].add(name)
-                    output_dict[prefix+'tld'].add(".".join(name_parts[1:])+".")
+                    output_dict[prefix+'tld'].add(f"{'.'.join(name_parts[1:])}.")
                 else:
-                    output_dict[prefix+'tld'].add(name_parts[0]+'.')
+                    output_dict[prefix+'tld'].add(f"{name_parts[0]}.")
             # Only update output_dict with data if isTLD is false
             if not isTLD:
                 output_dict.update(new_auth_ns)
@@ -215,7 +231,7 @@ class DNSResolver:
     # name - The hostname to search for
     def get_domain_dict(self, name): 
         # Initialize the dictionary to store the raw zone data
-        output_dict = {}
+        output_dict = defaultdict(set)
         self.map_name(name, output_dict)
         # Initialize the dictionary to store the formatted zone data
         domain_dict = {}
@@ -236,7 +252,7 @@ class DNSResolver:
 
 if __name__ == "__main__":
     resolver = DNSResolver()
-    zone_data = resolver.get_domain_dict("R228.HOSTGATOR.COM.BR.")
+    zone_data = resolver.get_domain_dict("google.com")
     print(zone_data)
         
 

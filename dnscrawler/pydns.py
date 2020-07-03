@@ -22,7 +22,9 @@ def dns_response(domain,nameserver,retries=0):
             else:
                 return ""
     return "\n".join([record.to_text() for record in records])
-def query(domain,nameserver,record_types):
+    
+@lru_cache(maxsize=128)
+def query(domain,nameserver,record_types=("NS","A","AAAA")):
     raw_response = dns_response(domain,nameserver)
     response = raw_response.splitlines()
     # Return dns response as dict
@@ -41,6 +43,6 @@ def query(domain,nameserver,record_types):
     return data
 
 @lru_cache(maxsize=128)
-def query_root(domain,record_types):
+def query_root(domain,record_types=("NS","A","AAAA")):
     root_nameserver = choice(list(constants.ROOT_SERVERS.values()))
     return query(domain,root_nameserver,record_types)
