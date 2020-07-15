@@ -36,7 +36,7 @@ def crawl_complete(future, nameserver, retry_nameservers, retry_file):
     # and write to retry file
     try:
         result = future.result()
-     except:
+    except:
         print(f"RETRY HOSTNAME:{nameserver}")
         retry_nameservers.append(nameserver)
         retry_file.write(f"{nameserver}\n")

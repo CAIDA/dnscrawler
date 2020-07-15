@@ -1,1 +1,0 @@
-{"hazardous_domains": [], "ns": ["dns1.dhec.sc.gov.", "dns2.dhec.sc.gov."], "ipv4": ["74.254.77.8", "74.254.77.40", "23.185.0.2"], "ipv6": ["2620:12a:8001::2", "2620:12a:8000::2"], "tld": ["gov."], "sld": ["sc.gov.", "scdhec.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": [], "ps_sld": []}

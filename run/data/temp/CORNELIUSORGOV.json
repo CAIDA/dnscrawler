@@ -1,1 +1,0 @@
-{"hazardous_domains": ["or.us.", "hillsboro.or.us."], "ns": ["dns2.the-bug.org.", "sunny2.ci.hillsboro.or.us."], "ipv4": ["162.221.183.17", "208.71.204.33", "208.71.200.129"], "ipv6": [], "tld": ["gov.", "org.", "or.us."], "sld": ["hillsboro.or.us.", "the-bug.org.", "corneliusor.gov."], "ps_ns": [], "ps_ipv4": [], "ps_ipv6": [], "ps_tld": ["us."], "ps_sld": ["or.us."]}
