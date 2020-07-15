@@ -21,19 +21,19 @@ remove_tlds = ('gov','mil', 'us')
 hazardous_domains_set = set()
 available_hazardous = set()
 
-hazardous_row_count=0
-for index, row in hazardous_domains.iterrows():
-    tldFound = False
-    for domain in row['hazardous_domains']:
-        domain_parts = [part for part in domain.split(".") if len(part) > 0]
-        domain_parts.reverse()
-        sanitized_domain = domain_parts[1]+'.'+domain_parts[0]
-        if domain_parts[1].isdigit():
-            tldFound = True
-        if tldFound:
-            print(list(filter(lambda x:extract(x).suffix=="gov", row['sld'])))
+# hazardous_row_count=0
+# for index, row in hazardous_domains.iterrows():
+#     tldFound = False
+#     for domain in row['hazardous_domains']:
+#         domain_parts = [part for part in domain.split(".") if len(part) > 0]
+#         domain_parts.reverse()
+#         sanitized_domain = domain_parts[1]+'.'+domain_parts[0]
+#         if domain_parts[1].isdigit():
+#             tldFound = True
+#         if tldFound:
+#             print(list(filter(lambda x:extract(x).suffix=="gov", row['sld'])))
 
-# print(hazardous_domains)
+print(hazardous_domains.loc[[37]]['sld'].values)
 # pool = mp.Pool(mp.cpu_count())
 # pool.map_async(checkAvailability, hazardous_domains_setc)
 # pool.close()
