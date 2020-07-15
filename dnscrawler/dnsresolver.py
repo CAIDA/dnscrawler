@@ -135,9 +135,10 @@ class DNSResolver:
         # Initialize auth_ns to store the authoritative nameservers to query in each iteration
         auth_ns = None
         # When output_dict is empty from first creation, 
-        # create a set within output_dict to store hazardous domains, ipv4, ipv6, and ns data
-        # and to store nonhazardous domains in cases of cyclic dependencies
+        # create a set within output_dict to store hazardous domains, misconfigurations, ipv4, 
+        # ipv6, ns data, and to store nonhazardous domains in cases of cyclic dependencies
         if isinstance(output_dict,dict) and len(output_dict) == 0:
+            output_dict['misconfigured_domains'] = set()
             output_dict['hazardous_domains'] = set()
             output_dict['nonhazardous_domains'] = set()
             output_dict['ipv4'] = set()
@@ -206,8 +207,12 @@ class DNSResolver:
             # If auth_ns is still empty => query returned no nameservers so domain is hazardous,
             # unless a cyclic dependency has occurred, in which case nameserver will be added to nonhazardous domains
             if len(new_auth_ns) == 0 and name not in output_dict['nonhazardous_domains']:
-                # Add name to output_dicts hazardous set
-                output_dict['hazardous_domains'].add(name)
+                # If on first itereation add name to output_dicts hazardous set
+                # Else add name to misconfiguration set
+                if i==0:
+                    output_dict['hazardous_domains'].add(name)
+                else:
+                    output_dict['misconfigured_domains'].add(name)
                 if len(extracted_name.domain) > 0:
                     output_dict[prefix+'sld'].add(f"{extracted_name.domain}.{extracted_name.suffix}.")
                     output_dict[prefix+'tld'].add(f"{extracted_name.suffix}.")
@@ -216,6 +221,8 @@ class DNSResolver:
                     output_dict[prefix+'tld'].add(f"{'.'.join(name_parts[1:])}.")
                 else:
                     output_dict[prefix+'tld'].add(f"{name_parts[0]}.")
+                # Break iteration since is new_auth_ns is empty, no further resolutions can be made
+                break
             # Only update output_dict with data if isTLD is false
             if not isTLD:
                 output_dict.update(new_auth_ns)
@@ -234,9 +241,10 @@ class DNSResolver:
         output_dict = defaultdict(set)
         self.map_name(name, output_dict)
         # Initialize the dictionary to store the formatted zone data
-        domain_dict = {}
+        domain_dict = {"query":name}
         # Convert values in hazard, ns, ip, and tld/sld sets to uppercase to remove any case duplicates
         # Add ip, ns and hazardous domain data to domain_dict, casting to list to make the data JSON serializable.
+        domain_dict['misconfigured_domains'] = list({val.lower() for val in output_dict['misconfigured_domains']})
         domain_dict['hazardous_domains'] = list({val.lower() for val in output_dict['hazardous_domains']})
         domain_dict['ns'] = list({val.lower() for val in output_dict['ns']})
         domain_dict['ipv4'] = list({val.lower() for val in output_dict['ipv4']})

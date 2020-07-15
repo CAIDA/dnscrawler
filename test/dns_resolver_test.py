@@ -6,6 +6,6 @@ import json
 
 if __name__ == "__main__":
     resolver = DNSResolver()
-    domain_dict = resolver.get_domain_dict("level3.net")
+    domain_dict = resolver.get_domain_dict("alaska.gov")
     print(json.dumps(domain_dict))
 
