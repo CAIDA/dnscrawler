@@ -6,14 +6,20 @@ from tldextract import extract
 if __name__ == "__main__":
     import constants
     from logger import log
-    import pydns
+    from pydns import PyDNS
+    from querysummary import QuerySummary
+    from querysummarylist import QuerySummaryList
 else:
     from . import constants
     from .logger import log
-    from . import pydns
+    from .pydns import PyDNS
+    from .querysummary import QuerySummary
+    from .querysummarylist import QuerySummaryList
 
 class DNSResolver:
-    def __init__(self):
+    def __init__(self, sourceIPs=None):
+        self.sourceIPs = sourceIPs
+        self.pydns = PyDNS(sourceIPs)
         self.active_resolutions = set()
         self.past_resolutions = {}
         self.nameservers = defaultdict(set,{
@@ -138,7 +144,7 @@ class DNSResolver:
         # create a set within output_dict to store hazardous domains, misconfigurations, ipv4, 
         # ipv6, ns data, and to store nonhazardous domains in cases of cyclic dependencies
         if isinstance(output_dict,dict) and len(output_dict) == 0:
-            output_dict['misconfigured_domains'] = set()
+            output_dict['misconfigured_domains'] = defaultdict(QuerySummaryList)
             output_dict['hazardous_domains'] = set()
             output_dict['nonhazardous_domains'] = set()
             output_dict['ipv4'] = set()
@@ -177,7 +183,7 @@ class DNSResolver:
         isSuffix = extracted_name.domain == ''
         if isTLD:
             # Base case: When only tld query for root-server
-            records = pydns.query_root(domain=name).values()
+            records = self.pydns.query_root(domain=name)['data'].values()
             # Do not provide output_dict for parse as tlds do not need to be recursed
             return self.parse(name, records)
         else:
@@ -194,25 +200,38 @@ class DNSResolver:
         # repeats with the authoritative nameservers for the domain to get the final set of authoritative nameservers
         for i in range(2):
             new_auth_ns = {}
+            query_response_list = []
             # Query name for each ip for each ns in super_auth_ns
             for ip_set in old_auth_ns.values():
                 for ip in ip_set:
                     query_name = name
-                    records = pydns.query(domain=query_name, nameserver=ip).values()
+                    query_response_list.append(self.pydns.query(domain=query_name, nameserver=ip))
+                    query_response = query_response_list[-1]
+                    records = query_response['data'].values()
                     if len(records) == 0 and name != original_name:
                         query_name = original_name
-                        records = pydns.query(domain=query_name, nameserver=ip).values()
+                        query_response = self.pydns.query(domain=query_name, nameserver=ip)
+                        records = query_response['data'].values()
                     # If isTLD do not provide output_dict for parse as tlds do not need to be recursed
                     new_auth_ns.update(self.parse(query_name, records, output_dict if not isTLD else None, prefix))
             # If auth_ns is still empty => query returned no nameservers so domain is hazardous,
             # unless a cyclic dependency has occurred, in which case nameserver will be added to nonhazardous domains
             if len(new_auth_ns) == 0 and name not in output_dict['nonhazardous_domains']:
-                # If on first itereation add name to output_dicts hazardous set
-                # Else add name to misconfiguration set
+                # If error on first itereation and name is not ip add name to output_dicts hazardous set
+                # Else add name to misconfiguration set for missing ns records
                 if i==0:
-                    output_dict['hazardous_domains'].add(name)
+                    if name_parts[-1].isdigit():
+                        for query_response in query_response_list:
+                            output_dict['misconfigured_domains']['ip_ns_records'].add(
+                                QuerySummary(name=name,rcodes=query_response['rcodes'], nameserver=query_response['nameserver'])
+                            )
+                    else:
+                        output_dict['hazardous_domains'].add(name)
                 else:
-                    output_dict['misconfigured_domains'].add(name)
+                    for query_response in query_response_list:
+                        output_dict['misconfigured_domains']['missing_ns_records'].add(
+                            QuerySummary(name=name,rcodes=query_response['rcodes'], nameserver=query_response['nameserver'])
+                        )
                 if len(extracted_name.domain) > 0:
                     output_dict[prefix+'sld'].add(f"{extracted_name.domain}.{extracted_name.suffix}.")
                     output_dict[prefix+'tld'].add(f"{extracted_name.suffix}.")
@@ -244,7 +263,9 @@ class DNSResolver:
         domain_dict = {"query":name}
         # Convert values in hazard, ns, ip, and tld/sld sets to uppercase to remove any case duplicates
         # Add ip, ns and hazardous domain data to domain_dict, casting to list to make the data JSON serializable.
-        domain_dict['misconfigured_domains'] = list({val.lower() for val in output_dict['misconfigured_domains']})
+        domain_dict['misconfigured_domains'] = {}
+        for k,v in output_dict['misconfigured_domains'].items():
+            domain_dict['misconfigured_domains'][k] = v.queries
         domain_dict['hazardous_domains'] = list({val.lower() for val in output_dict['hazardous_domains']})
         domain_dict['ns'] = list({val.lower() for val in output_dict['ns']})
         domain_dict['ipv4'] = list({val.lower() for val in output_dict['ipv4']})
