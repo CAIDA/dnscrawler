@@ -209,8 +209,20 @@ class DNSResolver:
                     query_response = query_response_list[-1]
                     records = query_response['data'].values()
                     if len(records) == 0 and name != original_name:
-                        query_name = original_name
-                        query_response = self.pydns.query(domain=query_name, nameserver=ip)
+                        # Create flag to check if RCODE is 3 (NXDOMAIN); if it is, do not repeat query with original name
+                        nxdomain = False
+                        # If query did not timeout, check rcodes to determine how to proceed
+                        if "timeout" not in query_response['rcodes']:
+                            # If RCODE is 0 then domain is empty non terminal, so pass on original set of nameservers
+                            if query_response['rcodes'][2] == 0:
+                                new_auth_ns.update(old_auth_ns)
+                                continue
+                            # Elif RCODE is not 3 (domain doesnt exist), fall on back on retrying query with original name
+                            elif query_response['rcodes'][2] != 3:
+                                nxdomain = True
+                        if not nxdomain:
+                            query_name = original_name
+                            query_response = self.pydns.query(domain=query_name, nameserver=ip)
                         records = query_response['data'].values()
                     # If isTLD do not provide output_dict for parse as tlds do not need to be recursed
                     new_auth_ns.update(self.parse(query_name, records, output_dict if not isTLD else None, prefix))
