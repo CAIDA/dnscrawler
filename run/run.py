@@ -38,9 +38,10 @@ def crawl_complete(future, nameserver, retry_nameservers, retry_file):
         result = future.result()
     except:
         print(f"RETRY HOSTNAME:{nameserver}")
-        retry_nameservers.append(nameserver)
-        retry_file.write(f"{nameserver}\n")
-        retry_file.flush()
+        if nameserver not in retry_nameservers:
+            retry_nameservers.append(nameserver)
+            retry_file.write(f"{nameserver}\n")
+            retry_file.flush()
 
 # Crawl all nameservers from a list in a source file
 # and compile their result json into a target file
@@ -48,18 +49,21 @@ def compile_nameserver_json(source_file,target_file):
     print("Reading hostname list...")
     with open(source_file,"r") as nsfile:
         nameservers = nsfile.read().splitlines()
-    retry_nameservers = []
     target_dir = os.path.dirname(target_file)
-    with ProcessPool(max_workers=mp.cpu_count()) as pool, open(target_dir+"/retry.txt", "w") as retry_file:
-        print("Starting initial crawling...")
-        for nameserver in nameservers:
-            future = pool.schedule(json_nameserver_file, args=(nameserver,target_dir+"/temp"), timeout=60)
-            future.add_done_callback(lambda x: crawl_complete(x,nameserver,retry_nameservers, retry_file)) 
-        print("Starting retry crawling")
-        print(f"FINAL RETRY LIST: {retry_nameservers}")
-        for nameserver in retry_nameservers:
-            future = pool.schedule(json_nameserver_file, args=(nameserver,target_dir+"/temp"))
-        pool.close()
+    retry_nameservers = []
+    retry_filename = target_dir+"/retry.txt"
+    with open(retry_filename, 'w') as retry_file:
+        with ProcessPool(max_workers=mp.cpu_count()) as pool:
+            print("Starting initial crawling...")
+            for nameserver in nameservers:
+                future = pool.schedule(json_nameserver_file, args=(nameserver,target_dir+"/temp"), timeout=60)
+                future.add_done_callback(lambda x: crawl_complete(x,nameserver,retry_nameservers, retry_file)) 
+        pool.join()
+        with ProcessPool(max_workers=mp.cpu_count()) as pool:
+            print("Starting retry crawling")
+            print(f"FINAL RETRY LIST: {retry_nameservers}")
+            for nameserver in retry_nameservers:
+                future = pool.schedule(json_nameserver_file, args=(nameserver,target_dir+"/temp"))
         pool.join()
     print("Compiling data into jsonl file")
     with open(target_file,"wb") as outfile:
@@ -72,4 +76,5 @@ def compile_nameserver_json(source_file,target_file):
     print("FINISHED")
 
 if __name__ == "__main__":
-    compile_nameserver_json("ns_data.txt","data/ns_data.jsonl")
+    compile_nameserver_json("new_domains.csv","data/new_domains.jsonl")
+
