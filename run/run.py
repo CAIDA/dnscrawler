@@ -11,6 +11,7 @@ from dnscrawler import DNSResolver
 from dnscrawler.logger import log
 from glob import glob
 
+resolver = DNSResolver()
 # Crawl nameserver if it hasn't already been crawled
 # and output result to json file
 def json_nameserver_file(nameserver,output_dir):
@@ -20,7 +21,6 @@ def json_nameserver_file(nameserver,output_dir):
         os.makedirs(output_dir)
     filepath = output_dir+"/"+filename+".json"
     if not os.path.exists(filepath):
-        resolver = DNSResolver()
         domain_dict = resolver.get_domain_dict(nameserver)
         f = open(filepath,"w")
         f.write(json.dumps(domain_dict))
