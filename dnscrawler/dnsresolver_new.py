@@ -275,11 +275,13 @@ class DNSResolver:
         self.nameservers = defaultdict(set, self.root_servers)
         # Initialize the dictionary to store the raw zone data
         output_dict = defaultdict(set)
+        self.map_name(name, output_dict)
         # Initialize the dictionary to store the formatted zone data
         domain_dict = {"query":name}
         # Convert values in hazard, ns, ip, and tld/sld sets to uppercase to remove any case duplicates
         # Add ip, ns and hazardous domain data to domain_dict, casting to list to make the data JSON serializable.
         domain_dict['misconfigured_domains'] = {}
+        print(output_dict['misconfigured_domains'])
         for k,v in output_dict['misconfigured_domains'].items():
             domain_dict['misconfigured_domains'][k] = v.queries
         domain_dict['hazardous_domains'] = output_dict['hazardous_domains'].queries
@@ -295,8 +297,8 @@ class DNSResolver:
         domain_dict['ps_sld'] = list({val.lower() for val in output_dict['ps_sld']})
         return domain_dict
 
-if __name__ == "__main__":
-    resolver = DNSResolver()
-    zone_data = resolver.get_domain_dict("google.com")
+# if __name__ == "__main__":
+#     resolver = DNSResolver()
+#     zone_data = resolver.get_domain_dict("google.com")
         
 

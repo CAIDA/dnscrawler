@@ -34,7 +34,6 @@ class PyDNS:
         rcodes = {}
         dnsquery.socket_factory = self.get_socket_factory()
         for rtype in record_types:
-            print(f"dig @{nameserver} {domain} -t {rtype}")
             try:  
                 request = dnsmessage.make_query(domain, rtype)
                 response_data = dnsquery.udp(q=request, where=nameserver, timeout=float(constants.REQUEST_TIMEOUT))
