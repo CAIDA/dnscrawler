@@ -81,6 +81,7 @@ class DNSResolver:
                     # so that it can be parsed for tlds and slds
                     if record['name'].lower() == current_name:
                         output_dict[record['name'].lower()].add(record['data'].lower())
+                        ns_set.add(current_name)
         # Compile sets of all ips for authoritative ns into auth_ns
         for ns_name in ns_set:
             # Seperate ns_name and current_name by domain and suffix in order to avoid
@@ -163,23 +164,20 @@ class DNSResolver:
             output_dict['ps_sld'] = set()
 
 
-        # Extract and generate name_parts from name if available
-        # Else extract from original_name
-        if name:
-            # use tldextract to get just domain + suffix for each name
-            extracted_name = extract(name)
-        else:
+        # Extract and generate name_parts from truncated name if available
+        # Else use original_name
+        if not name:
             # Convert original name to lowercase and add trailing period for uniformity
             # Save original for querying where minimized name doesnt work
-            original_name =  original_name.lower()
+            original_name = original_name.lower()
             if original_name[-1] != ".":
                 original_name = f"{original_name}."
-            extracted_name = extract(original_name)
+            name = original_name
+        # use tldextract to get just domain + suffix for each name
+        extracted_name = extract(name)
         # Split domain and suffix by periods and remove any empty strings
-        name_parts = [part for part in extracted_name.domain.split('.')+extracted_name.suffix.split('.') if len(part) > 0]
-        # Set name to recombined name_parts and add trailing period
-        name = f"{'.'.join(name_parts)}."
-        # Return cached past resolutions to prevent cyclic dependencies and reduce queries
+        name_parts = [part for part in name.split('.') if len(part) > 0]
+        # Cache past resolutions to prevent cyclic dependencies and reduce queries
         if name in self.past_resolutions:
             return self.past_resolutions[name]
         # If name is only tld
@@ -204,13 +202,16 @@ class DNSResolver:
         for i in range(2):
             new_auth_ns = {}
             query_response_list = []
-            # Query name for each ip for each ns in auth_ns
+            # Query name for each ip for each ns in super_auth_ns
             for ip_set in auth_ns.values():
                 for ip in ip_set:
                     query_name = name
                     query_response = self.pydns.query(domain=query_name, nameserver=ip)
                     query_response_list.append(query_response)
                     records = query_response['data'].values()
+                    if len([record for record in records if 'directi.com' in record['data']]) > 0:
+                        print(query_response)
+                        print()
                     if len(records) == 0:
                         # Create flag to check if RCODE is 3 (NXDOMAIN); if it is, do not repeat query with original name
                         nxdomain = False
@@ -223,9 +224,6 @@ class DNSResolver:
                             # Elif RCODE is 3 (domain doesnt exist), fall on back on retrying query with original name
                             elif query_response['rcodes'][2] == 3:
                                 nxdomain = True
-                        if not nxdomain and name != original_name:
-                            query_name = original_name
-                            query_response = self.pydns.query(domain=query_name, nameserver=ip)
                         records = query_response['data'].values()
                     # If isTLD do not provide output_dict for parse as tlds do not need to be recursed
                     new_auth_ns.update(self.parse(query_name, records, output_dict if not isTLD else None, prefix))
@@ -273,8 +271,7 @@ class DNSResolver:
         self.nameservers = defaultdict(set, self.root_servers)
         # Initialize the dictionary to store the raw zone data
         output_dict = defaultdict(set)
-        print(self.map_name(name, output_dict))
-        print()
+        self.map_name(name, output_dict)
         # Initialize the dictionary to store the formatted zone data
         domain_dict = {"query":name}
         # Convert values in hazard, ns, ip, and tld/sld sets to uppercase to remove any case duplicates

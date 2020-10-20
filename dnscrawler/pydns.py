@@ -1,6 +1,8 @@
 from dns import query as dnsquery, message as dnsmessage, rdatatype
 from random import choice
 from functools import lru_cache
+import socket
+import socks
 if __name__ == "pydns":
     import constants
     from logger import log
@@ -9,24 +11,33 @@ else:
     from .logger import log
 
 class PyDNS:
-    def __init__(self, sourceIPs):
-        self.sourceIPs = sourceIPs
+    def __init__(self, socket_factories):
+        self.socket_factories = [socket.socket] + [self.create_socket_factory(factory['addr'], factory['port']) for factory in socket_factories];
+        self.only_default_factory = len(self.socket_factories) == 1
 
-    def get_source_ip(self):
-        if not self.sourceIPs:
-            return None
+    def create_socket_factory(self, addr, port):
+        def socket_factory(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0,fileno=None):
+            s = socks.socksocket(family, type, proto, fileno)
+            s.set_proxy(proxy_type=socks.SOCKS5, addr=addr, port=port)
+            return s
+        return socket_factory
+
+    def get_socket_factory(self):
+        if self.only_default_factory:
+            return self.socket_factories[0]
         else:
-            return choice(list(self.sourceIPs))
+            return choice(list(self.socket_factories))
+
     def dns_response(self, domain,nameserver,retries=0):
         record_types = (rdatatype.NS, rdatatype.A, rdatatype.AAAA)
         records = []
         rcodes = {}
+        dnsquery.socket_factory = self.get_socket_factory()
         for rtype in record_types:
+            print(f"dig @{nameserver} {domain} -t {rtype}")
             try:  
                 request = dnsmessage.make_query(domain, rtype)
-                sourceIP = self.get_source_ip()
-                response_data = dnsquery.udp(q=request, where=nameserver, timeout=float(constants.REQUEST_TIMEOUT),
-                    source=sourceIP)
+                response_data = dnsquery.udp(q=request, where=nameserver, timeout=float(constants.REQUEST_TIMEOUT))
                 rcodes[rtype] = response_data.rcode()
                 records += response_data.answer + response_data.additional + response_data.authority
             except:
