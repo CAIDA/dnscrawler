@@ -1,0 +1,13 @@
+<dgraph.graphql.schema>: string .
+<dgraph.graphql.xid>: string @index(exact) @upsert .
+<is_hazardous>: bool .
+<is_misconfigured>: bool .
+<last_seen>: string .
+<misconfigurations>: [string] @index(term) .
+<name>: string .
+<trusts>: [uid] .
+<xid>: string .
+type <dgraph.graphql> {
+    dgraph.graphql.schema
+    dgraph.graphql.xid
+}

@@ -1,1 +1,1 @@
-from .dnsresolver_new import DNSResolver
+from .dnsresolver import DNSResolver

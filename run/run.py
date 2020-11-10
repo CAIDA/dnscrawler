@@ -21,7 +21,7 @@ def json_nameserver_file(nameserver,output_dir):
         os.makedirs(output_dir)
     filepath = output_dir+"/"+filename+".json"
     if not os.path.exists(filepath):
-        domain_dict = resolver.get_domain_dict(nameserver)
+        domain_dict = resolver.get_domain_dict(nameserver, isNS=True)
         f = open(filepath,"w")
         f.write(json.dumps(domain_dict))
         f.close()

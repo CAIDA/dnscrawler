@@ -3,6 +3,7 @@ from random import choice
 from functools import lru_cache
 import socket
 import socks
+
 if __name__ == "pydns":
     import constants
     from logger import log
