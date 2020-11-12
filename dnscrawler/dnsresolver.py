@@ -58,7 +58,7 @@ class DNSResolver:
     # prefix - String indicating category of resolved hostnames, particulary if 
     #          the hostname came from resolving a public suffix dependency (ex. resolving co.uk)
     # is_ns - A flag to indicate that function call came from resolving a prior NS record
-    def parse(self, current_name, records, output_dict=None, prefix="", is_ns=False, node=None):
+    def parse(self, current_name, records, output_dict=None, prefix="", is_ns=False, current_node=None):
         # Convert current_name to lower case for sake of uniformity
         current_name = current_name.lower()
         # Create dictionary to store all ips for each authoritative ns
@@ -67,9 +67,14 @@ class DNSResolver:
         ns_set = set()
         # Pull all ip-ns pairs into a dict for comparison with ns_set
         ip_dict = self.nameservers
+        # Map current node's nameservers to its nameserver nodes
+        node_nameservers = {}
         for record in records:
             # Add all nameservers for names that are a substring of current_name to ns_set
             if record['type'] == 'NS' and record['name'].lower() in current_name:
+                if record['name'].lower() == current_name:
+                    node_nameservers[record['data']] = Node(record['data'], Node.infer_node_type(record['data'], is_ns=True))
+                    current_node.trusts.add(node_nameservers[record['data']])
                 # Convert data to lower case for sake of uniformity
                 ns_set.add(record['data'].lower())
                 # If output_dict is provided (not parsing tld data) then store the ns data in output_dict
@@ -93,6 +98,8 @@ class DNSResolver:
                     # If an A/AAAA record exists for the current name, add it straight to output_dict
                     # so that it can be parsed for tlds and slds
                     if record['name'].lower() == current_name:
+                        if record['name'].lower() == current_name:
+                            current_node.trusts.add(Node(record['data'], Node.infer_node_type(record['data'])))
                         output_dict[record['name'].lower()].add(record['data'].lower())
                         # If is_ns is true, query came from resolving a previous NS record, so the corresponding
                         # a record can be treated as a nameserver
@@ -148,10 +155,13 @@ class DNSResolver:
                 # the ns_name and the current_name are not part of the same domain and no 
                 # output_dict is provided (ie. not parsing a tld) try resolving the hostname for its ips
                 reresolved_ns = self.map_name(original_name=ns_name, output_dict=output_dict, 
-                    prefix=prefix, is_ns=True, node=node).get(ns_name, None)
+                    prefix=prefix, is_ns=True, current_node=current_node).get(ns_name, None)
                 if reresolved_ns is not None:
                     # If reresolution is successful then add to auth_ns
                     auth_ns[ns_name] = reresolved_ns.copy()
+            if ns_name in node_nameservers and ns_name in auth_ns:
+                for ip in auth_ns[ns_name]:
+                    node_nameservers[ns_name].trusts.add(Node(ip, Node.infer_node_type(ip)))
         return auth_ns
 
     # Recursively resolve a given hostname
@@ -161,8 +171,8 @@ class DNSResolver:
     #          the hostname came from resolving a public suffix dependency (ex. resolving co.uk)
     # name - A truncated form of the name used as the default for handling queries
     # is_ns - A flag to indicate that function call came from resolving a prior NS record
-    # node - Object representing current dns hostname
-    def map_name(self, original_name, output_dict, prefix="", name=None, is_ns=False, node=None):
+    # current_node - Object representing current dns hostname
+    def map_name(self, original_name, output_dict, prefix="", name=None, is_ns=False, current_node=None):
         # Initialize auth_ns to store the authoritative nameservers to query in each iteration
         auth_ns = None
         # When output_dict is empty from first creation, 
@@ -210,12 +220,12 @@ class DNSResolver:
         else:
             # Create name from every part of current name except first (ex. ns1.example.com -> example.com)
             superdomain = f"{'.'.join(name_parts[1:])}."
-            superdomain_node = node.trusts.add(Node(name=superdomain, node_type=Node.infer_node_type(superdomain))) if node else None
+            superdomain_node = current_node.trusts.add(Node(name=superdomain, node_type=Node.infer_node_type(superdomain))) if current_node else None
             # These are the authoritative nameservers from the super domain
             # (ie. com => a.gtld-servers.net => google.com)
             if isSuffix:
                 prefix = "ps_"
-            auth_ns = self.map_name(name=superdomain, output_dict=output_dict, prefix=prefix, original_name=original_name, node=superdomain_node);
+            auth_ns = self.map_name(name=superdomain, output_dict=output_dict, prefix=prefix, original_name=original_name, current_node=superdomain_node);
 
         # Authoritative nameserver querying split into two parts: First query the authoritative nameservers 
         # for the superdomain to get the the authoritative nameservers for the domain, then querying process
@@ -226,7 +236,13 @@ class DNSResolver:
             # Query name for each ip for each ns in auth_ns
             for nameserver, ip_set in auth_ns.items():
                 nameserver_node = Node(nameserver, "nameserver")
-                node.trusts.add(nameserver_node)
+                # if 'superdomain_node' in locals():
+                #     if i == 0:
+                #         superdomain_node.trusts.add(nameserver_node)
+                #     elif nameserver_node.xid() not in superdomain_node.trusts.nodes:
+                #         node.trusts.add(nameserver_node)
+                # else:
+                #     node.trusts.add(nameserver_node)
                 for ip in ip_set:
                     nameserver_ip_node = Node(ip, Node.infer_node_type(ip))
                     nameserver_node.trusts.add(nameserver_ip_node)
@@ -248,7 +264,7 @@ class DNSResolver:
                             new_auth_ns.update(auth_ns)
                             continue
                     # If isTLD do not provide output_dict for parse as tlds do not need to be recursed
-                    new_auth_ns.update(self.parse(query_name, records, output_dict if not isTLD else None, prefix, is_ns=is_ns, node=node))
+                    new_auth_ns.update(self.parse(query_name, records, output_dict if not isTLD else None, prefix, is_ns=is_ns, current_node=current_node))
             # If auth_ns is still empty => query returned no nameservers so domain is hazardous,
             # unless a cyclic dependency has occurred, in which case nameserver will be added to nonhazardous domains
             if len(new_auth_ns) == 0 and name not in output_dict['nonhazardous_domains']:
@@ -299,7 +315,7 @@ class DNSResolver:
             db.drop_all()
             db.set_schema(schema)
             node = Node(name=name, node_type=Node.infer_node_type(name, is_ns))
-            self.map_name(name, output_dict, is_ns=is_ns, node=node)
+            self.map_name(name, output_dict, is_ns=is_ns, current_node=node)
             db.create(node.json())
         # Initialize the dictionary to store the formatted zone data
         domain_dict = {"query":name}

@@ -4,7 +4,7 @@ class NodeList:
         self.xids = xids or set();
 
     def add(self, node):
-        self.xids.add
+        self.xids.add(node.xid())
         if node.xid() not in self.nodes:
             self.nodes[node.xid()] = node
         else:
@@ -14,3 +14,8 @@ class NodeList:
     def merge(self, other):
         for node in other.nodes.values():
             self.add(node)
+        other.nodes = self.nodes
+        other.xids = self.xids
+
+    def json(self):
+        return [node.json() for node in self.nodes.values()]
