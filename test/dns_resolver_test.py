@@ -6,9 +6,14 @@ import json
 
 if __name__ == "__main__":
     # resolver = DNSResolver([{'addr':"192.172.226.186",'port':1080}])
-    resolver = DNSResolver()
-    domain_dict = resolver.get_domain_dict("google.com")
+    resolver = DNSResolver(ipv4_only=True)
+    # resolver = DNSResolver()
+    # domain_dict = resolver.get_domain_dict("google.com")
+    # Empty non-terminal
     # domain_dict = resolver.get_domain_dict("caag.state.ca.us")
-    # domain_dict = resolver.get_domain_dict("kitchengardenstore.com")
+    # Hazardous domain
+    domain_dict = resolver.get_domain_dict("PREGNANCYCALCULATE.COM.")
+    # Cross zone loops
+    # domain_dict = resolver.get_domain_dict("amazon.com")
     print(json.dumps(domain_dict))
 

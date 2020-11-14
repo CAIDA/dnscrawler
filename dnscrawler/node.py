@@ -30,7 +30,7 @@ class Node:
         self.type = node_type
         self.is_hazardous = False
         self.is_misconfigured = False
-        self.misconfigurations = []
+        self.misconfigurations = set()
         self.trusts = NodeList()
         name = name.lower()
         if self.type not in ('ipv4', 'ipv6'):
@@ -84,7 +84,7 @@ class Node:
             except:
                 extracted_name = extract(name)
                 if extracted_name.domain == '':
-                    return "PS_TLD"
+                    return "ps_tld"
                 else:
                     return "domain"
 
@@ -109,7 +109,7 @@ class Node:
             'xid':self.xid(),
             'is_hazardous':self.is_hazardous,
             'is_misconfigured':self.is_misconfigured,
-            'misconfigurations':self.misconfigurations,
+            'misconfigurations':list(self.misconfigurations),
             'last_seen':get_timestamp(),
             'trusts': self.trusts.json()
         }

@@ -8,7 +8,12 @@ class NodeList:
         if node.xid() not in self.nodes:
             self.nodes[node.xid()] = node
         else:
-            self.nodes[node.xid()].trusts.merge(node.trusts)
+            # Merge old and new nodes
+            oldNode = self.nodes[node.xid()];
+            oldNode.trusts.merge(node.trusts)
+            oldNode.is_hazardous = oldNode.is_hazardous or node.is_hazardous;
+            oldNode.is_misconfigured = oldNode.is_misconfigured or node.is_misconfigured;
+            oldNode.misconfigurations.update(node.misconfigurations);
         return node
 
     def merge(self, other):

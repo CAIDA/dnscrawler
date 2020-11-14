@@ -5,7 +5,7 @@
 <last_seen>: string .
 <misconfigurations>: [string] @index(term) .
 <name>: string .
-<trusts>: [uid] .
+<trusts>: [uid] @reverse .
 <xid>: string .
 type <dgraph.graphql> {
     dgraph.graphql.schema

@@ -13,6 +13,7 @@ if __name__ == "__main__":
     from querysummarylist import QuerySummaryList
     from db import DatabaseConnection
     from node import Node
+    from nodelist import NodeList
 else:
     from . import constants
     from .logger import log
@@ -21,10 +22,15 @@ else:
     from .querysummarylist import QuerySummaryList
     from .db import DatabaseConnection
     from .node import Node
+    from .nodelist import NodeList
 
 class DNSResolver:
-    def __init__(self, socket_factories=[]):
-        self.pydns = PyDNS(socket_factories)
+    # Create new dnsresolver
+    # socket_factories - List of SOCKS5 proxies through which to route queries
+    # ipv4_only - Only run queries to ipv4 nameservers to avoid ipv6 timeouts
+    def __init__(self, socket_factories=[], ipv4_only=False):
+        self.pydns = PyDNS(socket_factories, ipv4_only)
+        self.ipv4_only = ipv4_only
         self.active_resolutions = set()
         self.past_resolutions = {}
         self.root_servers = {
@@ -58,7 +64,7 @@ class DNSResolver:
     # prefix - String indicating category of resolved hostnames, particulary if 
     #          the hostname came from resolving a public suffix dependency (ex. resolving co.uk)
     # is_ns - A flag to indicate that function call came from resolving a prior NS record
-    def parse(self, current_name, records, output_dict=None, prefix="", is_ns=False, current_node=None):
+    def parse(self, current_name, records, output_dict=None, prefix="", is_ns=False, current_node=None, node_list=None):
         # Convert current_name to lower case for sake of uniformity
         current_name = current_name.lower()
         # Create dictionary to store all ips for each authoritative ns
@@ -74,7 +80,8 @@ class DNSResolver:
             if record['type'] == 'NS' and record['name'].lower() in current_name:
                 if record['name'].lower() == current_name:
                     node_nameservers[record['data']] = Node(record['data'], Node.infer_node_type(record['data'], is_ns=True))
-                    current_node.trusts.add(node_nameservers[record['data']])
+                    if current_node:
+                        current_node.trusts.add(node_nameservers[record['data']])
                 # Convert data to lower case for sake of uniformity
                 ns_set.add(record['data'].lower())
                 # If output_dict is provided (not parsing tld data) then store the ns data in output_dict
@@ -98,7 +105,7 @@ class DNSResolver:
                     # If an A/AAAA record exists for the current name, add it straight to output_dict
                     # so that it can be parsed for tlds and slds
                     if record['name'].lower() == current_name:
-                        if record['name'].lower() == current_name:
+                        if current_node:
                             current_node.trusts.add(Node(record['data'], Node.infer_node_type(record['data'])))
                         output_dict[record['name'].lower()].add(record['data'].lower())
                         # If is_ns is true, query came from resolving a previous NS record, so the corresponding
@@ -151,11 +158,13 @@ class DNSResolver:
                 # Add name to active_resolutions, this will prevent it from
                 # being reresolved in a cyclic dependency, but only add if not tld
                 self.active_resolutions.add(sanitized_ns_name)
+                # Use saved nameserver node for secondary resolution, or add new one if doesn't exist
+                ns_node = node_nameservers[ns_name] if  ns_name in node_nameservers else node_list.add(Node(ns_name, Node.infer_node_type(ns_name, is_ns=True)))
                 # Else if the current ns_name is not already being resolved and
                 # the ns_name and the current_name are not part of the same domain and no 
                 # output_dict is provided (ie. not parsing a tld) try resolving the hostname for its ips
                 reresolved_ns = self.map_name(original_name=ns_name, output_dict=output_dict, 
-                    prefix=prefix, is_ns=True, current_node=current_node).get(ns_name, None)
+                    prefix=prefix, is_ns=True, current_node=ns_node, node_list=node_list).get(ns_name, None)
                 if reresolved_ns is not None:
                     # If reresolution is successful then add to auth_ns
                     auth_ns[ns_name] = reresolved_ns.copy()
@@ -172,7 +181,7 @@ class DNSResolver:
     # name - A truncated form of the name used as the default for handling queries
     # is_ns - A flag to indicate that function call came from resolving a prior NS record
     # current_node - Object representing current dns hostname
-    def map_name(self, original_name, output_dict, prefix="", name=None, is_ns=False, current_node=None):
+    def map_name(self, original_name, output_dict, prefix="", name=None, is_ns=False, current_node=None, node_list=None):
         # Initialize auth_ns to store the authoritative nameservers to query in each iteration
         auth_ns = None
         # When output_dict is empty from first creation, 
@@ -208,7 +217,6 @@ class DNSResolver:
         extracted_name = extract(name)
         # Return cached past resolutions to prevent cyclic dependencies and reduce queries
         if name in self.past_resolutions:
-            print("running")
             return self.past_resolutions[name]
         # If name is only tld
         isTLD = len(name_parts) == 1
@@ -225,46 +233,44 @@ class DNSResolver:
             # (ie. com => a.gtld-servers.net => google.com)
             if isSuffix:
                 prefix = "ps_"
-            auth_ns = self.map_name(name=superdomain, output_dict=output_dict, prefix=prefix, original_name=original_name, current_node=superdomain_node);
+            auth_ns = self.map_name(name=superdomain, output_dict=output_dict, prefix=prefix, original_name=original_name, current_node=superdomain_node, node_list=node_list);
 
         # Authoritative nameserver querying split into two parts: First query the authoritative nameservers 
         # for the superdomain to get the the authoritative nameservers for the domain, then querying process
         # repeats with the authoritative nameservers for the domain to get the final set of authoritative nameservers
         for i in range(2):
-            new_auth_ns = {}
+            new_auth_ns = defaultdict(set)
             query_response_list = []
             # Query name for each ip for each ns in auth_ns
             for nameserver, ip_set in auth_ns.items():
                 nameserver_node = Node(nameserver, "nameserver")
-                # if 'superdomain_node' in locals():
-                #     if i == 0:
-                #         superdomain_node.trusts.add(nameserver_node)
-                #     elif nameserver_node.xid() not in superdomain_node.trusts.nodes:
-                #         node.trusts.add(nameserver_node)
-                # else:
-                #     node.trusts.add(nameserver_node)
                 for ip in ip_set:
                     nameserver_ip_node = Node(ip, Node.infer_node_type(ip))
                     nameserver_node.trusts.add(nameserver_ip_node)
                     query_name = name
+                    print(f"Querying {nameserver} for {query_name} ({ip})")
                     query_response = self.pydns.query(domain=query_name, nameserver=ip)
                     query_response_list.append(query_response)
                     records = query_response['data'].values()
                     if len(records) == 0:
+                        ns_timed_out = "timeout" in query_response['rcodes']
                         # Create flag to check if RCODE is 3 (NXDOMAIN); if it is, do not repeat query with original name
-                        nxdomain = "timeout" not in query_response['rcodes'] and query_response['rcodes'][2] == 3
+                        nxdomain = not ns_timed_out and query_response['rcodes'][2] == 3
                         if not nxdomain and name != original_name:
                             query_name = original_name
                             query_response = self.pydns.query(domain=query_name, nameserver=ip)
                         records = query_response['data'].values()
-                        nxdomain = "timeout" not in query_response['rcodes'] and query_response['rcodes'][2] == 3
+                        ns_timed_out = "timeout" in query_response['rcodes']
+                        nxdomain = not ns_timed_out and query_response['rcodes'][2] == 3
                         # As long as query response still is not (NXDOMAIN), reuse previous zone cut's 
                         # nameservers for next set of queries
-                        if len(records) == 0 and not nxdomain:
-                            new_auth_ns.update(auth_ns)
+                        if len(records) == 0 and not nxdomain and not ns_timed_out:
+                            new_auth_ns[nameserver].add(ip)
                             continue
+                    else:
+                        nxdomain = False
                     # If isTLD do not provide output_dict for parse as tlds do not need to be recursed
-                    new_auth_ns.update(self.parse(query_name, records, output_dict if not isTLD else None, prefix, is_ns=is_ns, current_node=current_node))
+                    new_auth_ns.update(self.parse(query_name, records, output_dict if not isTLD else None, prefix, is_ns=is_ns, current_node=current_node, node_list=node_list))
             # If auth_ns is still empty => query returned no nameservers so domain is hazardous,
             # unless a cyclic dependency has occurred, in which case nameserver will be added to nonhazardous domains
             if len(new_auth_ns) == 0 and name not in output_dict['nonhazardous_domains']:
@@ -277,6 +283,7 @@ class DNSResolver:
                                 QuerySummary(name=name,rcodes=query_response['rcodes'], nameserver=query_response['nameserver'])
                             )
                     else:
+                        current_node.is_hazardous = True;
                         for query_response in query_response_list:
                             output_dict['hazardous_domains'].add(QuerySummary(name=name,rcodes=query_response['rcodes'], nameserver=query_response['nameserver']))
                 else:
@@ -314,9 +321,13 @@ class DNSResolver:
             # TESTING
             db.drop_all()
             db.set_schema(schema)
-            node = Node(name=name, node_type=Node.infer_node_type(name, is_ns))
-            self.map_name(name, output_dict, is_ns=is_ns, current_node=node)
-            db.create(node.json())
+            node_list = NodeList()
+            node = node_list.add(Node(name=name, node_type=Node.infer_node_type(name, is_ns)))
+            auth_ns = self.map_name(name, output_dict, is_ns=is_ns, current_node=node, node_list=node_list)
+            print(auth_ns)
+            print()
+            print(output_dict)
+            db.create(node_list.json())
         # Initialize the dictionary to store the formatted zone data
         domain_dict = {"query":name}
         # Convert values in hazard, ns, ip, and tld/sld sets to uppercase to remove any case duplicates

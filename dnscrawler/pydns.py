@@ -1,6 +1,7 @@
 from dns import query as dnsquery, message as dnsmessage, rdatatype
 from random import choice
 from functools import lru_cache
+from ipaddress import ip_address
 import socket
 import socks
 
@@ -12,9 +13,10 @@ else:
     from .logger import log
 
 class PyDNS:
-    def __init__(self, socket_factories):
+    def __init__(self, socket_factories, ipv4_only=False):
         self.socket_factories = [socket.socket] + [self.create_socket_factory(factory['addr'], factory['port']) for factory in socket_factories];
         self.only_default_factory = len(self.socket_factories) == 1
+        self.ipv4_only = ipv4_only
 
     def create_socket_factory(self, addr, port):
         def socket_factory(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0,fileno=None):
@@ -33,19 +35,22 @@ class PyDNS:
         record_types = (rdatatype.NS, rdatatype.A, rdatatype.AAAA)
         records = []
         rcodes = {}
-        dnsquery.socket_factory = self.get_socket_factory()
-        for rtype in record_types:
-            try:  
-                request = dnsmessage.make_query(domain, rtype)
-                response_data = dnsquery.udp(q=request, where=nameserver, timeout=float(constants.REQUEST_TIMEOUT))
-                rcodes[rtype] = response_data.rcode()
-                records += response_data.answer + response_data.additional + response_data.authority
-            except:
-                if retries < int(constants.REQUEST_TRIES):
-                    return self.dns_response(domain,nameserver,retries+1)
-                else:
-                    rcodes['timeout'] = True
-                    return {"records":"","rcodes":rcodes}
+        if not self.ipv4_only or ip_address(nameserver).version == 4:
+            dnsquery.socket_factory = self.get_socket_factory()
+            for rtype in record_types:
+                try:  
+                    request = dnsmessage.make_query(domain, rtype)
+                    response_data = dnsquery.udp(q=request, where=nameserver, timeout=float(constants.REQUEST_TIMEOUT))
+                    rcodes[rtype] = response_data.rcode()
+                    records += response_data.answer + response_data.additional + response_data.authority
+                except:
+                    if retries < int(constants.REQUEST_TRIES):
+                        return self.dns_response(domain,nameserver,retries+1)
+                    else:
+                        rcodes['timeout'] = True
+                        return {"records":"","rcodes":rcodes}
+        else:
+            rcodes['timeout'] = True
         return {
             "records":"\n".join([record.to_text() for record in records]),
             "rcodes":rcodes
