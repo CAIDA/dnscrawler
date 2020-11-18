@@ -12,8 +12,10 @@ if __name__ == "__main__":
     # Empty non-terminal
     # domain_dict = resolver.get_domain_dict("caag.state.ca.us")
     # Hazardous domain
-    domain_dict = resolver.get_domain_dict("PREGNANCYCALCULATE.COM.")
+    # domain_dict = resolver.get_domain_dict("PREGNANCYCALCULATE.COM.")
     # Cross zone loops
-    # domain_dict = resolver.get_domain_dict("amazon.com")
+    domain_dict = resolver.get_domain_dict("amazon.com")
+    # Early ns records
+    # domain_dict = resolver.get_domain_dict("aridns.net.au")
     print(json.dumps(domain_dict))
 
