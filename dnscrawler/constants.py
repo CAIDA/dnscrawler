@@ -1,4 +1,4 @@
-REQUEST_TIMEOUT="2"
+REQUEST_TIMEOUT="60"
 REQUEST_TRIES="2"
 ROOT_SERVERS={
     "a.root-servers.net":"198.41.0.4",
