@@ -1,6 +1,6 @@
 import sys
 sys.path.append("../")
-from dnscrawler import DNSResolver
+from dnscrawler import DNSResolver, load_schema
 from dnscrawler.logger import log
 import json
 

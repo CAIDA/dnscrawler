@@ -141,4 +141,4 @@ class Node:
         for key, nodelist in self._trusts.items():
             data[key+"_trusts"] = nodelist.json(full_data=False)
         filtered_data = {k:v for k,v in data.items() if v is not False}
-        return data
+        return filtered_data

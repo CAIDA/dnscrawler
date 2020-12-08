@@ -11,7 +11,6 @@ if __name__ == "__main__":
     from pydns import PyDNS
     from querysummary import QuerySummary
     from querysummarylist import QuerySummaryList
-    from db import DatabaseConnection
     from node import Node
     from nodelist import NodeList
 else:
@@ -20,7 +19,6 @@ else:
     from .pydns import PyDNS
     from .querysummary import QuerySummary
     from .querysummarylist import QuerySummaryList
-    from .db import DatabaseConnection
     from .node import Node
     from .nodelist import NodeList
 
@@ -377,24 +375,18 @@ class DNSResolver:
     # Return a dictionary containing all the ns, tld, sld, ip, and hazardous domains for a given hostname,
     # filters the output from map_name
     # name - The hostname to search for
-    def get_domain_dict(self, name, is_ns=False): 
+    def get_domain_dict(self, name, is_ns=False, db_json=False): 
         self.nameservers = defaultdict(set, self.root_servers)
         # Initialize the dictionary to store the raw zone data
         output_dict = defaultdict(set)
-        path = os.path.dirname(os.path.realpath(__file__))
-        with DatabaseConnection("localhost:9080") as db, open(f"{path}/schema.txt", "r") as schema_file:
-            schema = schema_file.read()
-            # TESTING
-            db.drop_all()
-            db.set_schema(schema)
-            node_list = NodeList()
-            node = node_list.create_node(name=name, node_type=Node.infer_node_type(name, is_ns))
-            auth_ns = self.map_name(name, output_dict, is_ns=is_ns, current_node=node, node_list=node_list)
-            # print(auth_ns)
-            # print()
-            # print(output_dict)
-            # log(node_list.json())
-            db.create(node_list.json())
+        # path = os.path.dirname(os.path.realpath(__file__))
+        node_list = NodeList()
+        node = node_list.create_node(name=name, node_type=Node.infer_node_type(name, is_ns))
+        auth_ns = self.map_name(name, output_dict, is_ns=is_ns, current_node=node, node_list=node_list)
+        # print(auth_ns)
+        # print()
+        # print(output_dict)
+        # log(node_list.json())
         # Initialize the dictionary to store the formatted zone data
         domain_dict = {"query":name}
         # Convert values in hazard, ns, ip, and tld/sld sets to uppercase to remove any case duplicates
@@ -413,6 +405,9 @@ class DNSResolver:
         domain_dict['ps_ipv6'] = list({val.lower() for val in output_dict['ps_ipv6']})
         domain_dict['ps_tld'] = list({val.lower() for val in output_dict['ps_tld']})
         domain_dict['ps_sld'] = list({val.lower() for val in output_dict['ps_sld']})
+
+        if db_json:
+            return {'domain_dict':domain_dict, 'json':node_list.json()}
         return domain_dict
 
 # if __name__ == "__main__":
