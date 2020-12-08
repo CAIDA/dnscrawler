@@ -1,7 +1,17 @@
 # DNSCrawler
 * `/run/run.py` handles execution of crawling over a list of hostnames
 * `/dnscrawler/dnsresolver.py` handles crawling of a single hostname
-## `DNSResolver.get_domain_dict(domain)`
+* `/run/run_db.py` handles execution of crawling over a list of hostnames and outputs a gzipped json file containing the nodes and their relations for use in a dgraph db
+* `/dnscrawler/db_dnsresolver.py` handles crawling of a single hostname and inputs data into local dgraph db
+## `DNSResolver.get_domain_dict(domain, is_ns=False, db_json=False)`
+* `domain` - hostname to query dependency data for
+* `is_ns` - flag to indicate if the initially queried name is a nameserver or not; used to predetermine node types and ip handling behavior when NS records are not available for 4+ part nameservers
+* `db_json` - flag to indicate whether a dictionary of node relations is desired in addition to the main dependency dictionary for graph database entry 
+
+
+```python
+get_domain_dict("google.com")
+```
 ```json
 {
    "hazardous_domains":[
