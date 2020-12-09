@@ -11,6 +11,7 @@ from dnscrawler import DNSResolver, load_schema, DatabaseConnection
 from dnscrawler.logger import log
 from glob import glob
 import gzip
+import time
 
 resolver = DNSResolver()
 domain_dict_dirname = "domain_dict"
@@ -31,7 +32,7 @@ def json_nameserver_file(nameserver,output_dir):
     domain_dict_filepath = f"{output_dir}/{domain_dict_dirname}/{filename}.json"
     nodelist_json_filepath = f"{output_dir}/{nodelist_json_dirname}/{filename}.json"
     if not os.path.exists(domain_dict_filepath):
-        data = resolver.get_domain_dict(nameserver, is_ns=True, db_json=True)
+        data = resolver.get_domain_dict(nameserver, is_ns=False, db_json=True)
         domain_dict = data['domain_dict']
         nodelist_json = data['json']
         with open(domain_dict_filepath,"w") as domain_dict_file, open(nodelist_json_filepath,"w") as nodelist_json_file:
@@ -49,15 +50,18 @@ def crawl_complete(future, nameserver, retry_nameservers, retry_file):
     try:
         result = future.result()
     except:
-        print(f"RETRY HOSTNAME:{nameserver}")
         if nameserver not in retry_nameservers:
+            print(f"RETRY HOSTNAME:{nameserver}")
             retry_nameservers.append(nameserver)
             retry_file.write(f"{nameserver}\n")
             retry_file.flush()
+            os.fsync(retry_file)
 
 # Crawl all nameservers from a list in a source file
 # and compile their result json into a target file
 def compile_nameserver_json(source_file,target_file, db_target_file):
+    start_time = int(time.time())
+    print(f"Start Time: {start_time}")
     target_dir = os.path.dirname(target_file)
     target_schema_filepath = target_dir + "/schema.txt"
     print("Resetting database...")
@@ -109,7 +113,15 @@ def compile_nameserver_json(source_file,target_file, db_target_file):
                 infile.close()
         outfile.write("]\n".encode('utf-8'))
     print("FINISHED")
+    finish_time = int(time.time())
+    print(f"Finish Time: {finish_time}")
+    duration = finish_time - start_time
+    duration_days = duration // 86400
+    duration_hours = (duration % 86400) // 3600
+    duration_minutes = (duration % 3600) // 60
+    duration_seconds = duration % 60
+    print(f"Duration: {duration_days}d {duration_hours}h {duration_minutes}m {duration_seconds}s")
 
 if __name__ == "__main__":
-    compile_nameserver_json("gov-domains-test2.txt","data/gov-domains.jsonl","data/db-gov-domains.json.gz")
+    compile_nameserver_json("gov-domains-test3.txt","data/gov-domains.jsonl","data/db-gov-domains.json.gz")
 

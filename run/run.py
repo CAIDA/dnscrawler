@@ -19,12 +19,11 @@ def json_nameserver_file(nameserver,output_dir):
     filename = nameserver
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    filepath = output_dir+"/"+filename+".json"
+    filepath = f"{output_dir}/{filename}.json"
     if not os.path.exists(filepath):
         domain_dict = resolver.get_domain_dict(nameserver, is_ns=True)
-        f = open(filepath,"w")
-        f.write(json.dumps(domain_dict))
-        f.close()
+        with open(filepath,"w") as nameserver_file:
+            nameserver_file.write(json.dumps(domain_dict))
     else:
         print(f"File found: {nameserver}")
     print(f"Finished: {nameserver}")
@@ -37,11 +36,12 @@ def crawl_complete(future, nameserver, retry_nameservers, retry_file):
     try:
         result = future.result()
     except:
-        print(f"RETRY HOSTNAME:{nameserver}")
         if nameserver not in retry_nameservers:
+            print(f"RETRY HOSTNAME:{nameserver}")
             retry_nameservers.append(nameserver)
             retry_file.write(f"{nameserver}\n")
             retry_file.flush()
+            os.fsync(retry_file)
 
 # Crawl all nameservers from a list in a source file
 # and compile their result json into a target file
