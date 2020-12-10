@@ -11,7 +11,7 @@ async def main():
     # resolver = DNSResolver([{'addr':"192.172.226.186",'port':1080}])
     resolver = DNSResolver(ipv4_only=True)
     # resolver = DNSResolver()
-    domain_dict = await resolver.get_domain_dict("google.com")
+    # domain_dict = await resolver.get_domain_dict("google.com")
     # Empty non-terminal
     # domain_dict = await resolver.get_domain_dict("caag.state.ca.us")
     # Hazardous domain
@@ -20,6 +20,8 @@ async def main():
     # domain_dict = await resolver.get_domain_dict("amazon.com")
     # Early ns records
     # domain_dict = await resolver.get_domain_dict("aridns.net.au")
+    # Retry domain records due to timeout
+    # data = await resolver.get_domain_dict("AMERICUSGA.GOV", db_json=True)
     finish_time = float(time.time())
     duration = finish_time - start_time
     print(json.dumps(domain_dict))
