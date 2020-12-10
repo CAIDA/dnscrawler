@@ -15,9 +15,11 @@ if __name__ == "__main__":
     # Hazardous domain
     # domain_dict = resolver.get_domain_dict("PREGNANCYCALCULATE.COM.")
     # Cross zone loops
-    domain_dict = resolver.get_domain_dict("amazon.com")
+    # domain_dict = resolver.get_domain_dict("amazon.com")
     # Early ns records
     # domain_dict = resolver.get_domain_dict("aridns.net.au")
+    # Retry domain records
+    domain_dict = resolver.get_domain_dict("AMERICUSGA.GOV")
     finish_time = float(time.time())
     duration = finish_time - start_time
     print(json.dumps(domain_dict))
