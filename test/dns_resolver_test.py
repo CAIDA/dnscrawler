@@ -13,13 +13,13 @@ async def main():
     # resolver = DNSResolver()
     domain_dict = await resolver.get_domain_dict("google.com")
     # Empty non-terminal
-    # domain_dict = resolver.get_domain_dict("caag.state.ca.us")
+    # domain_dict = await resolver.get_domain_dict("caag.state.ca.us")
     # Hazardous domain
-    # domain_dict = resolver.get_domain_dict("PREGNANCYCALCULATE.COM.")
+    # domain_dict = await resolver.get_domain_dict("PREGNANCYCALCULATE.COM.")
     # Cross zone loops
-    # domain_dict = resolver.get_domain_dict("amazon.com")
+    # domain_dict = await resolver.get_domain_dict("amazon.com")
     # Early ns records
-    # domain_dict = resolver.get_domain_dict("aridns.net.au")
+    # domain_dict = await resolver.get_domain_dict("aridns.net.au")
     finish_time = float(time.time())
     duration = finish_time - start_time
     print(json.dumps(domain_dict))

@@ -1,4 +1,4 @@
-from dns import query as dnsquery, message as dnsmessage, rdatatype
+from dns import asyncquery as dnsquery, message as dnsmessage, rdatatype
 from random import choice
 from functools import lru_cache
 from ipaddress import ip_address
@@ -31,7 +31,7 @@ class PyDNS:
         else:
             return choice(list(self.socket_factories))
 
-    def dns_response(self, domain,nameserver,retries=0):
+    async def dns_response(self, domain,nameserver,retries=0):
         record_types = (rdatatype.NS, rdatatype.A, rdatatype.AAAA)
         records = []
         rcodes = {}
@@ -40,12 +40,12 @@ class PyDNS:
             for rtype in record_types:
                 try:  
                     request = dnsmessage.make_query(domain, rtype)
-                    response_data = dnsquery.udp(q=request, where=nameserver, timeout=float(constants.REQUEST_TIMEOUT))
+                    response_data = await dnsquery.udp(q=request, where=nameserver, timeout=float(constants.REQUEST_TIMEOUT))
                     rcodes[rtype] = response_data.rcode()
                     records += response_data.answer + response_data.additional + response_data.authority
                 except:
                     if retries < int(constants.REQUEST_TRIES):
-                        return self.dns_response(domain,nameserver,retries+1)
+                        return await self.dns_response(domain,nameserver,retries+1)
                     else:
                         rcodes['timeout'] = True
                         return {"records":"","rcodes":rcodes}
@@ -56,9 +56,9 @@ class PyDNS:
             "rcodes":rcodes
         }
         
-    @lru_cache(maxsize=128)
-    def query(self, domain,nameserver,record_types=("NS","A","AAAA")):
-        raw_response = self.dns_response(domain,nameserver)
+    # @lru_cache(maxsize=128)
+    async def query(self, domain,nameserver,record_types=("NS","A","AAAA")):
+        raw_response = await self.dns_response(domain,nameserver)
         response = raw_response['records'].splitlines()
         # Return dns response as dict
         data = {}
@@ -80,7 +80,7 @@ class PyDNS:
             "nameserver":nameserver
         }
 
-    @lru_cache(maxsize=128)
-    def query_root(self, domain,record_types=("NS","A","AAAA")):
+    # @lru_cache(maxsize=128)
+    async def query_root(self, domain,record_types=("NS","A","AAAA")):
         root_nameserver = choice(list(constants.ROOT_SERVERS.values()))
         return self.query(domain,root_nameserver,record_types)

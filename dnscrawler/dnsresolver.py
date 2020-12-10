@@ -3,6 +3,7 @@ from functools import lru_cache
 from random import choice
 from tldextract import extract
 import os
+import time
 import asyncio
 
 if __name__ == "__main__":
@@ -171,8 +172,8 @@ class DNSResolver:
                 # Else if the current ns_name is not already being resolved and
                 # the ns_name and the current_name are not part of the same domain and no 
                 # output_dict is provided (ie. not parsing a tld) try resolving the hostname for its ips
-                reresolved_ns = await self.map_name(original_name=ns_name, output_dict=output_dict, 
-                    prefix=prefix, is_ns=True, current_node=ns_node, node_list=node_list).get(ns_name, None)
+                reresolved_ns = (await self.map_name(original_name=ns_name, output_dict=output_dict, 
+                    prefix=prefix, is_ns=True, current_node=ns_node, node_list=node_list)).get(ns_name, None)
                 if reresolved_ns is not None:
                     # If reresolution is successful then add to auth_ns
                     auth_ns[ns_name] = reresolved_ns.copy()
@@ -183,7 +184,8 @@ class DNSResolver:
         return auth_ns
 
     async def query(self, *args, **kwargs):
-        return self.pydns.query(*args, **kwargs)
+        response = await self.pydns.query(*args, **kwargs)
+        return response
 
     # Recursively resolve a given hostname
     # original_name - The hostname
@@ -271,72 +273,79 @@ class DNSResolver:
             all_nxdomain = True
             # Flag to check if all responding nameservers have an RCODE of 0 (NOERROR), but no records are returned
             empty_nonterminal = True
+            # List of compiled ip, nameserver, ns_node tuples compiled from all nameservers in auth_ns
+            ip_list = []
             # Query name for each ip for each ns in auth_ns
             for nameserver, ip_set in auth_ns.items():
                 nameserver_node = node_list.create_node(nameserver, "nameserver")
-                query_requests = []
-
                 for ip in ip_set:
                     nameserver_ip_node = node_list.create_node(ip, Node.infer_node_type(ip))
                     nameserver_node.trusts(nameserver_ip_node, node_trust_type)
-                    query_name = name
-                    query_requests.append(self.query(domain=query_name, nameserver=ip))
-                query_responses = await asyncio.gather(*query_requests)
-                query_response_list += query_responses
-                for count, ip in enumerate(ip_set):
-                    query_name = name
-                    query_response = query_responses[count]
-                    records = query_response['data'].values()
-                    # If records are not returned, perform additional checks to see if query timed out or 
-                    # returned NXDOMAIN, else set NXDOMAIN flag to false and valid reponse flag to true
-                    if len(records) == 0:
-                        ns_timed_out = "timeout" in query_response['rcodes']
-                        if not ns_timed_out:
-                            has_valid_response = True
-                            # Flag to check if current response is NXDOMAIN
-                            nxdomain = query_response['rcodes'][2] == 3
-                            if not nxdomain:
-                                all_nxdomain = False
-                                # If RCODE is 0 (NOERROR) then recycle current ip address for next set of queries
-                                if query_response['rcodes'][2] == 0:
-                                    current_node.trusts(nameserver_node, node_trust_type)
-                                    new_auth_ns[nameserver].add(ip)
-                                    continue
-                                else:
-                                    # If rcode is not noerror then can't be empty nonterminal
-                                    empty_nonterminal = False
-                                # Since the nameserver hasn't timed out or returned NXDOMAIN, if the current name
-                                # isn't the full hostname, repeat the query with the full hostname
-                                if name != original_name:
-                                    query_name = original_name
-                                    query_response = await self.query(domain=query_name, nameserver=ip) 
-                                    query_response_list.append(query_response)
-                                    records = query_response['data'].values()
-                                    if len(records) == 0:
-                                        ns_timed_out = "timeout" in query_response['rcodes']
-                                        if not ns_timed_out and query_response['rcodes'][2] == 0:
-                                            new_auth_ns[nameserver].add(ip)
-                                            current_node.trusts(nameserver_node, node_trust_type)
-                                            continue
-                            else:
-                                # If rcode is nxdomain then can't be empty nonterminal
-                                empty_nonterminal = False
-                    else:
+                    ip_list.append((ip, nameserver, nameserver_node))
+
+            query_requests = []
+            # Start query for each ip in ip_list concurrently
+            for ip, nameserver, nameserver_node in ip_list:
+                query_name = name
+                query_requests.append(self.query(domain=query_name, nameserver=ip))
+            query_responses = await asyncio.gather(*query_requests)
+            query_response_list += query_responses
+            for count, record in enumerate(ip_list):
+                # Unpack ip_list record
+                ip, nameserver, nameserver_node = record
+                query_name = name
+                query_response = query_responses[count]
+                records = query_response['data'].values()
+                # If records are not returned, perform additional checks to see if query timed out or 
+                # returned NXDOMAIN, else set NXDOMAIN flag to false and valid reponse flag to true
+                if len(records) == 0:
+                    ns_timed_out = "timeout" in query_response['rcodes']
+                    if not ns_timed_out:
                         has_valid_response = True
-                        all_nxdomain = False
-                        empty_nonterminal = False
-                    # If isTLD do not provide output_dict for parse as tlds do not need to be recursed
-                    new_auth_ns.update(
-                        await self.parse(
-                            query_name, 
-                            records, 
-                            output_dict if not isTLD else None, prefix, 
-                            is_ns=is_ns, 
-                            current_node=current_node, 
-                            node_list=node_list,
-                            node_trust_type=node_trust_type
-                        )
+                        # Flag to check if current response is NXDOMAIN
+                        nxdomain = query_response['rcodes'][2] == 3
+                        if not nxdomain:
+                            all_nxdomain = False
+                            # If RCODE is 0 (NOERROR) then recycle current ip address for next set of queries
+                            if query_response['rcodes'][2] == 0:
+                                current_node.trusts(nameserver_node, node_trust_type)
+                                new_auth_ns[nameserver].add(ip)
+                                continue
+                            else:
+                                # If rcode is not noerror then can't be empty nonterminal
+                                empty_nonterminal = False
+                            # Since the nameserver hasn't timed out or returned NXDOMAIN, if the current name
+                            # isn't the full hostname, repeat the query with the full hostname
+                            if name != original_name:
+                                query_name = original_name
+                                query_response = await self.query(domain=query_name, nameserver=ip) 
+                                query_response_list.append(query_response)
+                                records = query_response['data'].values()
+                                if len(records) == 0:
+                                    ns_timed_out = "timeout" in query_response['rcodes']
+                                    if not ns_timed_out and query_response['rcodes'][2] == 0:
+                                        new_auth_ns[nameserver].add(ip)
+                                        current_node.trusts(nameserver_node, node_trust_type)
+                                        continue
+                        else:
+                            # If rcode is nxdomain then can't be empty nonterminal
+                            empty_nonterminal = False
+                else:
+                    has_valid_response = True
+                    all_nxdomain = False
+                    empty_nonterminal = False
+                # If isTLD do not provide output_dict for parse as tlds do not need to be recursed
+                new_auth_ns.update(
+                    await self.parse(
+                        query_name, 
+                        records, 
+                        output_dict if not isTLD else None, prefix, 
+                        is_ns=is_ns, 
+                        current_node=current_node, 
+                        node_list=node_list,
+                        node_trust_type=node_trust_type
                     )
+                )
             # If auth_ns is still empty => query returned no nameservers so domain is hazardous,
             # unless a cyclic dependency has occurred, in which case nameserver will be added to nonhazardous domains
             # Else if empty_nonterminal flag is still set, mark current node as empty nonterminal
