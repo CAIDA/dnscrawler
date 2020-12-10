@@ -3,7 +3,7 @@ from functools import lru_cache
 from random import choice
 from tldextract import extract
 import os
-
+import asyncio
 
 if __name__ == "__main__":
     import constants
@@ -62,7 +62,7 @@ class DNSResolver:
     # prefix - String indicating category of resolved hostnames, particulary if 
     #          the hostname came from resolving a public suffix dependency (ex. resolving co.uk)
     # is_ns - A flag to indicate that function call came from resolving a prior NS record
-    def parse(self, current_name, records, output_dict=None, prefix="", is_ns=False, current_node=None, node_list=None, node_trust_type="parent"):
+    async def parse(self, current_name, records, output_dict=None, prefix="", is_ns=False, current_node=None, node_list=None, node_trust_type="parent"):
         # Convert current_name to lower case for sake of uniformity
         current_name = current_name.lower()
         # Create dictionary to store all ips for each authoritative ns
@@ -171,7 +171,7 @@ class DNSResolver:
                 # Else if the current ns_name is not already being resolved and
                 # the ns_name and the current_name are not part of the same domain and no 
                 # output_dict is provided (ie. not parsing a tld) try resolving the hostname for its ips
-                reresolved_ns = self.map_name(original_name=ns_name, output_dict=output_dict, 
+                reresolved_ns = await self.map_name(original_name=ns_name, output_dict=output_dict, 
                     prefix=prefix, is_ns=True, current_node=ns_node, node_list=node_list).get(ns_name, None)
                 if reresolved_ns is not None:
                     # If reresolution is successful then add to auth_ns
@@ -182,6 +182,9 @@ class DNSResolver:
                     node_nameservers[ns_name].trusts(ip_node, node_trust_type)
         return auth_ns
 
+    async def query(self, *args, **kwargs):
+        return self.pydns.query(*args, **kwargs)
+
     # Recursively resolve a given hostname
     # original_name - The hostname
     # output_dict - Dictionary to store all ns, tld, sld, ip, and hazardous_domain data
@@ -190,7 +193,7 @@ class DNSResolver:
     # name - A truncated form of the name used as the default for handling queries
     # is_ns - A flag to indicate that function call came from resolving a prior NS record
     # current_node - Object representing current dns hostname
-    def map_name(self, original_name, output_dict, prefix="", name=None, is_ns=False, current_node=None, node_list=None):
+    async def map_name(self, original_name, output_dict, prefix="", name=None, is_ns=False, current_node=None, node_list=None):
         # If current_node and node_list are both set, add current_node to node_list
         if current_node and node_list:
             node_list.add(current_node)
@@ -247,7 +250,7 @@ class DNSResolver:
                 current_node.trusts(superdomain_node, "provisioning")
             # These are the authoritative nameservers from the super domain
             # (ie. com => a.gtld-servers.net => google.com)
-            auth_ns = self.map_name(
+            auth_ns = await self.map_name(
                 name=superdomain, 
                 output_dict=output_dict, prefix=prefix, 
                 original_name=original_name, 
@@ -271,12 +274,18 @@ class DNSResolver:
             # Query name for each ip for each ns in auth_ns
             for nameserver, ip_set in auth_ns.items():
                 nameserver_node = node_list.create_node(nameserver, "nameserver")
+                query_requests = []
+
                 for ip in ip_set:
                     nameserver_ip_node = node_list.create_node(ip, Node.infer_node_type(ip))
                     nameserver_node.trusts(nameserver_ip_node, node_trust_type)
                     query_name = name
-                    query_response = self.pydns.query(domain=query_name, nameserver=ip)
-                    query_response_list.append(query_response)
+                    query_requests.append(self.query(domain=query_name, nameserver=ip))
+                query_responses = await asyncio.gather(*query_requests)
+                query_response_list += query_responses
+                for count, ip in enumerate(ip_set):
+                    query_name = name
+                    query_response = query_responses[count]
                     records = query_response['data'].values()
                     # If records are not returned, perform additional checks to see if query timed out or 
                     # returned NXDOMAIN, else set NXDOMAIN flag to false and valid reponse flag to true
@@ -300,7 +309,7 @@ class DNSResolver:
                                 # isn't the full hostname, repeat the query with the full hostname
                                 if name != original_name:
                                     query_name = original_name
-                                    query_response = self.pydns.query(domain=query_name, nameserver=ip) 
+                                    query_response = await self.query(domain=query_name, nameserver=ip) 
                                     query_response_list.append(query_response)
                                     records = query_response['data'].values()
                                     if len(records) == 0:
@@ -318,7 +327,7 @@ class DNSResolver:
                         empty_nonterminal = False
                     # If isTLD do not provide output_dict for parse as tlds do not need to be recursed
                     new_auth_ns.update(
-                        self.parse(
+                        await self.parse(
                             query_name, 
                             records, 
                             output_dict if not isTLD else None, prefix, 
@@ -375,14 +384,14 @@ class DNSResolver:
     # Return a dictionary containing all the ns, tld, sld, ip, and hazardous domains for a given hostname,
     # filters the output from map_name
     # name - The hostname to search for
-    def get_domain_dict(self, name, is_ns=False, db_json=False): 
+    async def get_domain_dict(self, name, is_ns=False, db_json=False): 
         self.nameservers = defaultdict(set, self.root_servers)
         # Initialize the dictionary to store the raw zone data
         output_dict = defaultdict(set)
         # path = os.path.dirname(os.path.realpath(__file__))
         node_list = NodeList()
         node = node_list.create_node(name=name, node_type=Node.infer_node_type(name, is_ns))
-        auth_ns = self.map_name(name, output_dict, is_ns=is_ns, current_node=node, node_list=node_list)
+        auth_ns = await self.map_name(name, output_dict, is_ns=is_ns, current_node=node, node_list=node_list)
         # print(auth_ns)
         # print()
         # print(output_dict)

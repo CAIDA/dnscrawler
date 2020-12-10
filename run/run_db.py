@@ -123,5 +123,5 @@ def compile_nameserver_json(source_file,target_file, db_target_file):
     print(f"Duration: {duration_days}d {duration_hours}h {duration_minutes}m {duration_seconds}s")
 
 if __name__ == "__main__":
-    compile_nameserver_json("gov-domains-test3.txt","data/gov-domains.jsonl","data/db-gov-domains.json.gz")
+    compile_nameserver_json("gov-domains-test4.txt","data/gov-domains.jsonl","data/db-gov-domains.json.gz")
 
