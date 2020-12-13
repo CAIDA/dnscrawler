@@ -21,7 +21,7 @@ async def main():
     # Early ns records
     # domain_dict = await resolver.get_domain_dict("aridns.net.au")
     # Retry domain records due to timeout
-    # data = await resolver.get_domain_dict("AMERICUSGA.GOV", db_json=True)
+    # domain_dict = await resolver.get_domain_dict("AMERICUSGA.GOV")
     finish_time = float(time.time())
     duration = finish_time - start_time
     print(json.dumps(domain_dict))

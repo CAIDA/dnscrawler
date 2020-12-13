@@ -1,5 +1,5 @@
 from dns import asyncquery as dnsquery, message as dnsmessage, rdatatype
-from random import choice
+from random import choice, random
 from functools import lru_cache
 from ipaddress import ip_address
 from collections import defaultdict
@@ -8,32 +8,34 @@ import socket
 import socks
 import asyncio
 import sys
+import time
+import math
 
 if __name__ == "pydns":
     import constants
     from logger import log
+    from asynciobackend import Backend
 else:
     from . import constants
-    from .logger import log
+    from . import constants
+    from .asynciobackend import Backend
 
-async def send_request(request, nameserver, retries=0):
-    try:  
-        response_data = await dnsquery.udp(q=request, where=nameserver, timeout=float(constants.REQUEST_TIMEOUT)) 
-        rcode = response_data.rcode()
-        records = response_data.answer + response_data.additional + response_data.authority
-        return{"rcode":rcode, "records":records}
-    except:
-        # Query Timeout
-        if retries < int(constants.REQUEST_TRIES):
-            return await send_request(request, nameserver, retries+1)
-        else:
-            return {"rcode":"timeout", "records":[]}
+
 
 class PyDNS:
     def __init__(self, socket_factories, ipv4_only=False):
         self.socket_factories = [socket.socket] + [self.create_socket_factory(factory['addr'], factory['port']) for factory in socket_factories];
         self.only_default_factory = len(self.socket_factories) == 1
         self.ipv4_only = ipv4_only
+        # Time last request was sent
+        self.last_send_time = None
+        # Time first request was sent
+        self.first_send_time = None
+        # Total number of queries sent
+        self.queries_sent = 0
+        # Max and min queries per second
+        self.max_queries_per_second = 0
+        self.min_queries_per_second = math.inf
 
     def create_socket_factory(self, addr, port):
         def socket_factory(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0,fileno=None):
@@ -48,17 +50,46 @@ class PyDNS:
         else:
             return choice(list(self.socket_factories))
 
+    async def send_request(self, request, nameserver, retries=0):
+        try:
+            current_time = time.time()
+            # Multiply timeout duration by n each iteation (ie. if multiplier is 5, timeouts of 2s, 10s, 50s), 
+            request_timeout = min(constants.REQUEST_TIMEOUT * (constants.TIMEOUT_MULTIPLIER ** retries), constants.MAX_TIMEOUT)
+            # Set last query sent time
+            self.last_send_time = current_time
+            # If first query 
+            if not self.first_send_time:
+                self.first_send_time = current_time
+            self.queries_sent +=1
+            queries_per_second = self.queries_sent / (self.last_send_time - self.first_send_time)
+            self.max_queries_per_second = max(self.max_queries_per_second, queries_per_second)
+            self.min_queries_per_second = min(self.min_queries_per_second, queries_per_second)
+            # print(f"{self.queries_sent} queries sent")
+            # print(f"QPS = {queries_per_second}, MAX QPS = {self.max_queries_per_second}, MIN QPS = {self.min_queries_per_second}")
+            response_data = await asyncio.wait_for(dnsquery.udp(q=request, where=nameserver, backend=Backend()), timeout=request_timeout)
+            rcode = response_data.rcode()
+            records = response_data.answer + response_data.additional + response_data.authority
+            return{"rcode":rcode, "records":records}
+        except:
+            # print(f"timedout {retries} {nameserver}")
+            # Query Timeout
+            if retries < constants.REQUEST_RETRIES:
+                return await self.send_request(request, nameserver, retries+1)
+            else:
+                return {"rcode":"timeout", "records":[]}
+
     async def dns_response(self, domain,nameserver,retries=0):
+        # print(f"querying {domain} at {nameserver}")
         record_types = (rdatatype.NS, rdatatype.A, rdatatype.AAAA)
         records = []
         rcodes = {}
         # If ipv4_only flag set, return timeout for all ipv6 queries
         if not self.ipv4_only or ip_address(nameserver).version == 4:
-            dnsquery.socket_factory = self.get_socket_factory()
+            # dnsquery.socket_factory = self.get_socket_factory()
             requests = []
             for rtype in record_types:
                 request = dnsmessage.make_query(domain, rtype)
-                requests.append(send_request(request, nameserver))
+                requests.append(self.send_request(request, nameserver))
             responses = await asyncio.gather(*requests)
             for i, rtype in enumerate(record_types):
                 response_data = responses[i]
