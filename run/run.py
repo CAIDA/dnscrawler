@@ -43,6 +43,10 @@ def crawl_complete(future, nameserver, retry_nameservers, retry_file):
             retry_file.flush()
             os.fsync(retry_file)
 
+# Closure generator for post-crawl callback function
+def create_completed_callback(nameserver, retry_nameservers, retry_file):
+    return lambda future: crawl_complete(future, nameserver, retry_nameservers, retry_file)
+
 # Crawl all nameservers from a list in a source file
 # and compile their result json into a target file
 def compile_nameserver_json(source_file,target_file):
@@ -57,7 +61,7 @@ def compile_nameserver_json(source_file,target_file):
             print("Starting initial crawling...")
             for nameserver in nameservers:
                 future = pool.schedule(json_nameserver_file, args=(nameserver,target_dir+"/temp"), timeout=60)
-                future.add_done_callback(lambda x: crawl_complete(x,nameserver,retry_nameservers, retry_file)) 
+                future.add_done_callback(create_completed_callback(nameserver,retry_nameservers, retry_file)) 
         pool.join()
         with ProcessPool(max_workers=mp.cpu_count()) as pool:
             print("Starting retry crawling")
