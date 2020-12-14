@@ -75,7 +75,7 @@ class PyDNS:
         # Return timeout for all nameservers that have previously timed out
         if nameserver not in self.timeout_nameservers:
             try:
-                query_task = asyncio.create_task(dnsquery.tcp(q=request, where=nameserver, backend=Backend()))
+                query_task = asyncio.create_task(dnsquery.udp(q=request, where=nameserver, backend=Backend()))
                 # Add request future to active_requests
                 self.active_requests[nameserver].append(query_task)
                 response_data = await asyncio.wait_for(query_task, timeout=request_timeout)

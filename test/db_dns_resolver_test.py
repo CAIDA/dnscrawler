@@ -17,7 +17,7 @@ async def main():
         # resolver = DNSResolver()
         print("running")
         start_time = time.time()        
-        # data = await resolver.get_domain_dict("google.com", db_json=True)
+        data = await resolver.get_domain_dict("google.com", db_json=True)
         # Empty non-terminal
         # data = await resolver.get_domain_dict("caag.state.ca.us", db_json=True)
         # Hazardous domain
