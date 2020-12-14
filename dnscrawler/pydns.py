@@ -85,14 +85,10 @@ class PyDNS:
                 records = response_data.answer + response_data.additional + response_data.authority
                 response = {"rcode":rcode, "records":records}
             except ConnectionRefusedError as err:
-                print(f"Connection Refused {nameserver}") 
                 block_nameserver = True
             except ConnectionResetError as err:
-                print(f"Connection Reset {nameserver}")
                 block_nameserver = True
             except:
-                print(sys.exc_info())
-                print(f"{id(self)} - timedout {retries} {nameserver}")
                 # Query Timeout
                 if retries < constants.REQUEST_RETRIES:
                     response = await self.send_request(request, nameserver, retries+1)
@@ -101,14 +97,11 @@ class PyDNS:
             finally:
                 if block_nameserver:
                     self.timeout_nameservers.add(nameserver)
-                    print("TIMEDOUT NAMESERVERS")
-                    print(self.timeout_nameservers)
                     # Cancel all active futures for the blocked nameserver
                     for future in self.active_requests[nameserver]:
                         if not future.done():
                             future.cancel()
                         self.active_requests[nameserver].remove(future)
-                        print(self.active_requests)
         return response
 
     async def dns_response(self, domain,nameserver,retries=0):
