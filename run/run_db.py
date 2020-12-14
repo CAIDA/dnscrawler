@@ -65,11 +65,12 @@ def compile_nameserver_json(source_file,target_file, db_target_file):
     target_dir = os.path.dirname(target_file)
     target_schema_filepath = target_dir + "/schema.txt"
     print("Resetting database...")
-    with DatabaseConnection("localhost:9080") as db, load_schema() as schema_infile, open(target_schema_filepath, "w") as schema_outfile:
+    # with DatabaseConnection("localhost:9080") as db, load_schema() as schema_infile, open(target_schema_filepath, "w") as schema_outfile:
+    with load_schema() as schema_infile, open(target_schema_filepath, "w") as schema_outfile:
         schema = schema_infile.read()
         # TESTING
-        db.drop_all()
-        db.set_schema(schema)
+        # db.drop_all()
+        # db.set_schema(schema)
         schema_outfile.write(schema)
     print("Reading hostname list...")
     with open(source_file,"r") as nsfile:
