@@ -36,6 +36,9 @@ class PyDNS:
         # Max and min queries per second
         self.max_queries_per_second = 0
         self.min_queries_per_second = math.inf
+        # Set of nameservers to auto timeout all queries to
+        self.timeout_nameservers = set()
+        self.active_requests = defaultdict(list)
 
     def create_socket_factory(self, addr, port):
         def socket_factory(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0,fileno=None):
@@ -51,32 +54,62 @@ class PyDNS:
             return choice(list(self.socket_factories))
 
     async def send_request(self, request, nameserver, retries=0):
-        try:
-            current_time = time.time()
-            # Multiply timeout duration by n each iteation (ie. if multiplier is 5, timeouts of 2s, 10s, 50s), 
-            request_timeout = min(constants.REQUEST_TIMEOUT * (constants.TIMEOUT_MULTIPLIER ** retries), constants.MAX_TIMEOUT)
-            # Set last query sent time
-            self.last_send_time = current_time
-            # If first query 
-            if not self.first_send_time:
-                self.first_send_time = current_time
-            self.queries_sent +=1
+        block_nameserver = False
+        response = {"rcode":"timeout", "records":[]}
+        current_time = time.time()
+        # Multiply timeout duration by n each iteation (ie. if multiplier is 5, timeouts of 2s, 10s, 50s), 
+        request_timeout = min(constants.REQUEST_TIMEOUT * (constants.TIMEOUT_MULTIPLIER ** retries), constants.MAX_TIMEOUT)
+        # Set last query sent time
+        self.last_send_time = current_time
+        # If first query set first_send_time
+        # Else start calculating queries per second
+        if not self.first_send_time:
+            self.first_send_time = current_time
+        else:
             queries_per_second = self.queries_sent / (self.last_send_time - self.first_send_time)
             self.max_queries_per_second = max(self.max_queries_per_second, queries_per_second)
             self.min_queries_per_second = min(self.min_queries_per_second, queries_per_second)
-            # print(f"{self.queries_sent} queries sent")
             # print(f"QPS = {queries_per_second}, MAX QPS = {self.max_queries_per_second}, MIN QPS = {self.min_queries_per_second}")
-            response_data = await asyncio.wait_for(dnsquery.udp(q=request, where=nameserver, backend=Backend()), timeout=request_timeout)
-            rcode = response_data.rcode()
-            records = response_data.answer + response_data.additional + response_data.authority
-            return{"rcode":rcode, "records":records}
-        except:
-            # print(f"timedout {retries} {nameserver}")
-            # Query Timeout
-            if retries < constants.REQUEST_RETRIES:
-                return await self.send_request(request, nameserver, retries+1)
-            else:
-                return {"rcode":"timeout", "records":[]}
+        self.queries_sent +=1
+        # print(f"{self.queries_sent} queries sent")
+        # Return timeout for all nameservers that have previously timed out
+        if nameserver not in self.timeout_nameservers:
+            try:
+                query_task = asyncio.create_task(dnsquery.tcp(q=request, where=nameserver, backend=Backend()))
+                # Add request future to active_requests
+                self.active_requests[nameserver].append(query_task)
+                response_data = await asyncio.wait_for(query_task, timeout=request_timeout)
+                # Remove request future from active_requests
+                self.active_requests[nameserver].remove(query_task)
+                rcode = response_data.rcode()
+                records = response_data.answer + response_data.additional + response_data.authority
+                response = {"rcode":rcode, "records":records}
+            except ConnectionRefusedError as err:
+                print(f"Connection Refused {nameserver}") 
+                block_nameserver = True
+            except ConnectionResetError as err:
+                print(f"Connection Reset {nameserver}")
+                block_nameserver = True
+            except:
+                print(sys.exc_info())
+                print(f"{id(self)} - timedout {retries} {nameserver}")
+                # Query Timeout
+                if retries < constants.REQUEST_RETRIES:
+                    response = await self.send_request(request, nameserver, retries+1)
+                else:
+                    block_nameserver = True
+            finally:
+                if block_nameserver:
+                    self.timeout_nameservers.add(nameserver)
+                    print("TIMEDOUT NAMESERVERS")
+                    print(self.timeout_nameservers)
+                    # Cancel all active futures for the blocked nameserver
+                    for future in self.active_requests[nameserver]:
+                        if not future.done():
+                            future.cancel()
+                        self.active_requests[nameserver].remove(future)
+                        print(self.active_requests)
+        return response
 
     async def dns_response(self, domain,nameserver,retries=0):
         # print(f"querying {domain} at {nameserver}")
@@ -84,7 +117,8 @@ class PyDNS:
         records = []
         rcodes = {}
         # If ipv4_only flag set, return timeout for all ipv6 queries
-        if not self.ipv4_only or ip_address(nameserver).version == 4:
+        # Return timeout for all nameservers that have previously timed out
+        if (not self.ipv4_only or ip_address(nameserver).version == 4) and nameserver not in self.timeout_nameservers:
             # dnsquery.socket_factory = self.get_socket_factory()
             requests = []
             for rtype in record_types:
