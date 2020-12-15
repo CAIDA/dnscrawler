@@ -79,15 +79,16 @@ def compile_nameserver_json(source_file,target_file, db_target_file):
         nameservers = nsfile.read().splitlines()
     # Create list of hostnames to retry
     retry_nameservers = nameservers.copy()
+    max_workers = mp.cpu_count() * 16 
     # Run initial crawl of hostnames, with a timeout after 60 seconds
-    with ProcessPool(max_workers=mp.cpu_count()) as pool:
+    with ProcessPool(max_workers=max_workers) as pool:
         print("Starting initial crawling...")
         for nameserver in nameservers:
             future = pool.schedule(json_nameserver_file, args=(nameserver,target_dir), timeout=60)
             future.add_done_callback(create_completed_callback(nameserver, retry_nameservers)) 
     pool.join()
     # Recrawl any hostnames which timed out
-    with ProcessPool(max_workers=mp.cpu_count()) as pool:
+    with ProcessPool(max_workers=max_workers) as pool:
         print("Starting retry crawling")
         print(f"FINAL RETRY LIST: {retry_nameservers}")
         for nameserver in retry_nameservers:
@@ -129,11 +130,6 @@ def compile_nameserver_json(source_file,target_file, db_target_file):
     if len(missing_namservers) > 0:
         print("MISSING HOSTNAME LIST")
         print(missing_namservers)
-        for nameserver in missing_namservers:
-            if nameserver in completed_nameservers:
-                print(f"NAMESERVER COMPLETED: {nameserver}")
-            else:
-                print(f"NAMESERVER NOT COMPLETED: {nameserver}")
     else:
         print("NO MISSING HOSTNAMES")
     print("FINISHED")
