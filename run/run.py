@@ -79,7 +79,7 @@ def compile_nameserver_json(source_file,target_file, db_target_file):
         nameservers = nsfile.read().splitlines()
     # Create list of hostnames to retry
     retry_nameservers = nameservers.copy()
-    max_workers = mp.cpu_count() * 16 
+    max_workers = mp.cpu_count() * 3 
     # Run initial crawl of hostnames, with a timeout after 60 seconds
     with ProcessPool(max_workers=max_workers) as pool:
         print("Starting initial crawling...")
