@@ -83,13 +83,14 @@ def compile_nameserver_json(source_file,target_file, db_target_file):
     retry_nameservers = []
     retry_filename = target_dir+"/retry.txt"
     with open(retry_filename, 'w') as retry_file:
-        with ProcessPool(max_workers=mp.cpu_count()) as pool:
+        max_workers = mp.cpu_count() * 3
+        with ProcessPool(max_workers=max_workers) as pool:
             print("Starting initial crawling...")
             for nameserver in nameservers:
                 future = pool.schedule(json_nameserver_file, args=(nameserver,target_dir+"/temp"), timeout=60)
                 future.add_done_callback(create_completed_callback(nameserver,retry_nameservers, retry_file)) 
         pool.join()
-        with ProcessPool(max_workers=mp.cpu_count()) as pool:
+        with ProcessPool(max_workers=max_workers) as pool:
             print("Starting retry crawling")
             print(f"FINAL RETRY LIST: {retry_nameservers}")
             for nameserver in retry_nameservers:
@@ -129,5 +130,5 @@ def compile_nameserver_json(source_file,target_file, db_target_file):
     print(f"Duration: {duration_days}d {duration_hours}h {duration_minutes}m {duration_seconds}s")
 
 if __name__ == "__main__":
-    compile_nameserver_json("gov-domains-test3.txt","data/gov-domains.jsonl","data/db-gov-domains.json.gz")
+    compile_nameserver_json("gov-domains-test4.txt","data/gov-domains.jsonl","data/db-gov-domains.json.gz")
 
