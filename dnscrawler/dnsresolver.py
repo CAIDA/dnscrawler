@@ -2,6 +2,7 @@ from collections import defaultdict
 from functools import lru_cache
 from random import choice
 from tldextract import extract
+from datetime import datetime, timezone
 import os
 import time
 import asyncio
@@ -24,6 +25,11 @@ else:
     from .nodelist import NodeList
 
 class DNSResolver:
+    # Get RFC 3339 timestamp
+    def get_timestamp(self):
+        timestamp = datetime.now(timezone.utc).astimezone()
+        return timestamp.isoformat()
+
     # Create new dnsresolver
     # socket_factories - List of SOCKS5 proxies through which to route queries
     # ipv4_only - Only run queries to ipv4 nameservers to avoid ipv6 timeouts
@@ -34,18 +40,18 @@ class DNSResolver:
         self.past_resolutions = {}
         self.root_servers = {
             "a.root-servers.net.":{"198.41.0.4"},
-            "b.root-servers.net.":{"199.9.14.201"},
-            "c.root-servers.net.":{"192.33.4.12"},
-            "d.root-servers.net.":{"199.7.91.13"},
-            "e.root-servers.net.":{"192.203.230.10"},
-            "f.root-servers.net.":{"192.5.5.241"},
-            "g.root-servers.net.":{"192.112.36.4"},
-            "h.root-servers.net.":{"198.97.190.53"},
-            "i.root-servers.net.":{"192.36.148.17"},
-            "j.root-servers.net.":{"192.58.128.30"},
-            "k.root-servers.net.":{"193.0.14.129"},
-            "l.root-servers.net.":{"199.7.83.42"},
-            "m.root-servers.net.":{"202.12.27.33"},
+            # "b.root-servers.net.":{"199.9.14.201"},
+            # "c.root-servers.net.":{"192.33.4.12"},
+            # "d.root-servers.net.":{"199.7.91.13"},
+            # "e.root-servers.net.":{"192.203.230.10"},
+            # "f.root-servers.net.":{"192.5.5.241"},
+            # "g.root-servers.net.":{"192.112.36.4"},
+            # "h.root-servers.net.":{"198.97.190.53"},
+            # "i.root-servers.net.":{"192.36.148.17"},
+            # "j.root-servers.net.":{"192.58.128.30"},
+            # "k.root-servers.net.":{"193.0.14.129"},
+            # "l.root-servers.net.":{"199.7.83.42"},
+            # "m.root-servers.net.":{"202.12.27.33"},
         };
         self.xid_cache = {}
         self.nameservers = defaultdict(set, self.root_servers)
@@ -393,18 +399,20 @@ class DNSResolver:
     # Return a dictionary containing all the ns, tld, sld, ip, and hazardous domains for a given hostname,
     # filters the output from map_name
     # name - The hostname to search for
-    async def get_domain_dict(self, name, is_ns=False, db_json=False): 
+    # is_ns - Flag to treat the hostname as a nameserver (used for A record handling and node type determinations)
+    # db_json - Flag to return nodelist json along with domain_dict
+    # db_json - Flag to return nodelist rdf along with domain_dict
+    # version - Value for versioning facet on uid predicates for nodelist, defaults to timestamp at start of crawl
+    async def get_domain_dict(self, name, is_ns=False, db_json=False, db_rdf=False, version=None): 
         self.nameservers = defaultdict(set, self.root_servers)
+        # Default version to timestamp at start of crawl
+        if not version:
+            version = self.get_timestamp()
+        node_list = NodeList(version=version)
         # Initialize the dictionary to store the raw zone data
         output_dict = defaultdict(set)
-        # path = os.path.dirname(os.path.realpath(__file__))
-        node_list = NodeList()
         node = node_list.create_node(name=name, node_type=Node.infer_node_type(name, is_ns))
         auth_ns = await self.map_name(name, output_dict, is_ns=is_ns, current_node=node, node_list=node_list)
-        # print(auth_ns)
-        # print()
-        # print(output_dict)
-        # log(node_list.json())
         # Initialize the dictionary to store the formatted zone data
         domain_dict = {"query":name}
         # Convert values in hazard, ns, ip, and tld/sld sets to uppercase to remove any case duplicates
@@ -424,8 +432,13 @@ class DNSResolver:
         domain_dict['ps_tld'] = list({val.lower() for val in output_dict['ps_tld']})
         domain_dict['ps_sld'] = list({val.lower() for val in output_dict['ps_sld']})
 
-        if db_json:
-            return {'domain_dict':domain_dict, 'json':node_list.json()}
+        if db_json or db_rdf:
+            response = {'domain_dict':domain_dict}
+            if db_json:
+                response['json'] = node_list.json()
+            if db_rdf:
+                response['rdf'] = node_list.rdf()
+            return response
         return domain_dict
 
 # if __name__ == "__main__":

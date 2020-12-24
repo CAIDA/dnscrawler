@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from ipaddress import ip_address
 from collections import defaultdict
 from tldextract import extract
@@ -24,14 +23,10 @@ node_type_prefix = {
     # "public_suffix_subdomain":"PS_SDN",
 }
 
-# Get RFC 3339 timestamp
-def get_timestamp():
-    timestamp = datetime.now(timezone.utc).astimezone()
-    return timestamp.isoformat()
-
 class Node:
     def __init__(self, name, node_type='nameserver', root_nodelist=None):
         self.type = node_type
+        self.version = root_nodelist.version if root_nodelist else None
         self.is_hazardous = False
         self.is_misconfigured = False
         self.is_empty_nonterminal = False
@@ -131,14 +126,58 @@ class Node:
             'dgraph.type':self.type,
             'uid':self.uid(),
             'xid':self.xid(),
-            'is_hazardous':self.is_hazardous,
-            'is_misconfigured':self.is_misconfigured,
-            'is_empty_nonterminal':self.is_empty_nonterminal,
-            'is_public_suffix':self.is_public_suffix,
-            'misconfigurations':list(self.misconfigurations),
-            'last_seen':get_timestamp(),
+            'details':[{
+                'details|version':self.version,
+                'is_empty_nonterminal':self.is_empty_nonterminal,
+                'is_hazardous':self.is_hazardous,
+                'is_misconfigured':self.is_misconfigured,
+                'is_public_suffix':self.is_public_suffix,
+                'misconfigurations':list(self.misconfigurations),
+                'uid':f"{self.uid()}_details_{self.version}",
+                'xid':f"{self.xid()}_details_{self.version}",
+            }],
+            'trusts':[{
+                'uid':f"{self.uid()}_trust_{self.version}",
+                'xid':f"{self.xid()}_trust_{self.version}",
+            }]
         }
+        trusts = data['trusts'][0]
         for key, nodelist in self._trusts.items():
-            data[key+"_trusts"] = nodelist.json(full_data=False)
-        filtered_data = {k:v for k,v in data.items() if v is not False}
+            trusts[key] = nodelist.json(full_data=False)
+        data['trusts'][0] = {k:trusts[k] for k in sorted(trusts.keys())}
+        filtered_data = {k:data[k] for k in sorted(data.keys()) if data[k] is not False}
         return filtered_data
+
+    # Generate list of n-quad rdf lines for a node
+    def rdf(self):
+        lines = []
+        # Identifiers for Details Node
+        details_xid = f"{self.xid()}_details_{self.version}"
+        details_uid = f"_:{details_xid}"
+        # Identifiers for Trusts Node
+        trusts_xid = f"{self.xid()}_trust_{self.version}"
+        trusts_uid = f"_:{trusts_xid}"
+        # Collection of node predicates of that don't require managing internode edges
+        scalar_predicates = [
+            {'uid':self.uid(), 'predicates':['name',('dgraph.type',self.type), ('xid',self.xid())]},
+            {'uid':details_uid, 'predicates':['is_empty_nonterminal','is_hazardous','is_misconfigured','is_public_suffix', ('xid',details_xid), ('dgraph.type','node_details')]},
+            {'uid':trusts_uid, 'predicates':[('xid',trusts_xid), ('dgraph.type','node_trusts')]},
+        ]
+        for node in scalar_predicates:
+            for predicate in node['predicates']:
+                predicate_name = predicate[0] if isinstance(predicate, tuple) else predicate
+                predicate_value = predicate[1] if isinstance(predicate, tuple) else getattr(self, predicate)
+                lines.append(f'<{node["uid"]}> <{predicate_name}> "{predicate_value}" .')
+        
+        # Add misconfigurations to details node
+        for misconfiguration in sorted(list(self.misconfigurations)):
+            lines.append(f'<{details_uid}> <misconfiguration> "{misconfiguration}" .')
+        # Add trust dependencies to trusts nodes
+        for key in sorted(self._trusts.keys()):
+            nodelist = self._trusts[key]
+            for node in nodelist.sorted_nodes():
+                lines.append(f"<{trusts_uid}> <{key}> <{node.uid()}> .")
+        # Add relationships between entity node and trust/details nodes
+        lines.append(f'<{self.uid()}> <details> <{details_uid}> (first_seen="{self.version}", last_seen="{self.version}") .')
+        lines.append(f'<{self.uid()}> <trusts> <{trusts_uid}> (first_seen="{self.version}", last_seen="{self.version}") .')
+        return lines

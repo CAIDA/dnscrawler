@@ -26,6 +26,10 @@ class DatabaseConnection:
         response = self.__txn(lambda txn: txn.mutate(set_obj=data))
         return response
 
+    def create_rdf(self, data):
+        response = self.__txn(lambda txn: txn.mutate(set_nquads=data))
+        return response
+
     def delete(self, uid):
         data = {'uid':uid}
         response = self.__txn(lambda txn: txn.mutate(del_obj=data))

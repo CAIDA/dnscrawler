@@ -16,8 +16,8 @@ async def main():
         resolver = DNSResolver(ipv4_only=True)
         # resolver = DNSResolver()
         print("running")
-        start_time = time.time()        
-        data = await resolver.get_domain_dict("google.com", db_json=True)
+        start_time = time.time()    
+        data = await resolver.get_domain_dict("google.com", db_rdf=True, version=resolver.get_timestamp())
         # Empty non-terminal
         # data = await resolver.get_domain_dict("caag.state.ca.us", db_json=True)
         # Hazardous domain
@@ -33,9 +33,11 @@ async def main():
         finish_time = time.time()
         duration = finish_time - start_time
         domain_dict = data['domain_dict']
-        nodelist_json = data['json']
-        print(json.dumps(domain_dict))
-        db.create(nodelist_json)
+        nodelist_rdf = data['rdf']
+        print(nodelist_rdf)
+        db.create_rdf(nodelist_rdf)
+        # nodelist_json = data['json']
+        # print(json.dumps(nodelist_json))
         print(f"Duration: {duration}")
 
 if __name__ == "__main__":

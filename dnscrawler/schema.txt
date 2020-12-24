@@ -1,4 +1,5 @@
-<child_trusts>: [uid] @reverse .
+<child>: [uid] @reverse .
+<details>: [uid] .
 <dgraph.graphql.schema>: string .
 <dgraph.graphql.xid>: string @index(exact) @upsert .
 <is_empty_nonterminal>: bool .
@@ -7,9 +8,9 @@
 <is_public_suffix>: bool .
 <last_seen>: datetime @index(day) .
 <misconfigurations>: [string] @index(term) .
-<name>: string .
-<parent_trusts>: [uid] @reverse .
-<provisioning_trusts>: [uid] @reverse .
+<name>: string @index(fulltext) .
+<parent>: [uid] @reverse .
+<provisioning>: [uid] @reverse .
 <trusts>: [uid] @reverse .
 <xid>: string .
 type <dgraph.graphql> {

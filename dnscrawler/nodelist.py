@@ -1,6 +1,7 @@
 class NodeList:
-    def __init__(self, xids=None):
+    def __init__(self, xids=None, version=None):
         self.nodes = {}
+        self.version = version
 
     def add(self, node, merged_xids=None, is_public_suffix=False):
         # Preserve child public suffix state
@@ -39,11 +40,20 @@ class NodeList:
             self.add(node, merged_xids, is_public_suffix)
         other.nodes = self.nodes
 
+    def sorted_nodes(self):
+        return sorted(self.nodes.values(), key=lambda node:node.xid())
+
     def json(self, full_data=True):
-        return [node.json(full_data) for node in self.nodes.values()]
+        return [node.json(full_data) for node in self.sorted_nodes()]
+
+    def rdf(self):
+        lines = []
+        for node in self.sorted_nodes():
+            lines += node.rdf()
+        return "\n".join(lines)
 
     def __repr__(self):
-        return str([node.xid() for node in self.nodes.values()])
+        return str([node.xid() for node in self.sorted_nodes()])
 
     def create_node(self, *args, **kwargs):
         if __name__ == "nodelist":

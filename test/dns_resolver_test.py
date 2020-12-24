@@ -4,6 +4,7 @@ from dnscrawler import DNSResolver, load_schema
 from dnscrawler.logger import log
 import json
 import time
+
 import asyncio
 
 async def main():

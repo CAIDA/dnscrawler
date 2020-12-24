@@ -13,31 +13,36 @@ import time
 import asyncio
 
 resolver = DNSResolver(ipv4_only=True)
+version = resolver.get_timestamp()
 domain_dict_dirname = "domain_dict"
-nodelist_json_dirname = "nodelist"
+nodelist_dirname = "nodelist"
 # Crawl nameserver if it hasn't already been crawled
 # and output result to json file
-def json_nameserver_file(nameserver,output_dir):
+def create_nameserver_file(nameserver,output_dir, filetype):
     try:
         print(f"Starting: {nameserver}")
         filename = nameserver
         # Create paths and directories for precompiled domain_dicts and nodelist json
         domain_dict_dirpath = f"{output_dir}/{domain_dict_dirname}"
-        nodelist_json_dirpath = f"{output_dir}/{nodelist_json_dirname}"
-        required_paths = [output_dir, domain_dict_dirpath, nodelist_json_dirpath]
+        nodelist_dirpath = f"{output_dir}/{nodelist_dirname}"
+        required_paths = [output_dir, domain_dict_dirpath, nodelist_dirpath]
         for dirpath in required_paths:
             if not os.path.exists(dirpath):
                 os.makedirs(dirpath)
         # Create paths for domain_dict and nodelist json files
         domain_dict_filepath = f"{output_dir}/{domain_dict_dirname}/{filename}.json"
-        nodelist_json_filepath = f"{output_dir}/{nodelist_json_dirname}/{filename}.json"
+        nodelist_filepath = f"{output_dir}/{nodelist_dirname}/{filename}.{filetype}"
         if not os.path.exists(domain_dict_filepath):
-                data = asyncio.run(resolver.get_domain_dict(nameserver, is_ns=False, db_json=True))
+                crawl_kwargs = {"name":nameserver, "is_ns":False, f"db_{filetype}":True, "version":version}
+                data = asyncio.run(resolver.get_domain_dict(**crawl_kwargs))
                 domain_dict = data['domain_dict']
-                nodelist_json = data['json']
-                with open(domain_dict_filepath,"w") as domain_dict_file, open(nodelist_json_filepath,"w") as nodelist_json_file:
+                if filetype == "json":
+                    nodelist_output = json.dumps(data[filetype])
+                elif filetype == "rdf":
+                    nodelist_output = data[filetype]
+                with open(domain_dict_filepath,"w") as domain_dict_file, open(nodelist_filepath,"w") as nodelist_output_file:
                     domain_dict_file.write(json.dumps(domain_dict))
-                    nodelist_json_file.write(json.dumps(nodelist_json))
+                    nodelist_output_file.write(nodelist_output)
         else:
             print(f"File found: {nameserver}")
         print(f"Finished: {nameserver}")
@@ -63,35 +68,38 @@ def create_completed_callback(nameserver, retry_nameservers):
 
 # Crawl all nameservers from a list in a source file
 # and compile their result json into a target file
-def compile_nameserver_json(source_file,target_file, db_target_file):
+def compile_nameserver_data(source_file,target_dir, target_file, db_target_file):
     start_time = time.time()
     print(f"Start Time: {start_time}")
-    # Get directory target_file is in
-    target_dir = os.path.dirname(target_file)
     target_schema_filepath = target_dir + "/schema.txt"
     # Copy schema to target directory
     with load_schema() as schema_infile, open(target_schema_filepath, "w") as schema_outfile:
         schema = schema_infile.read()
         schema_outfile.write(schema)
+    # Get db_target_file extension to determine overall output
+    db_target_extension = os.path.splitext(db_target_file[:-3])[1][1:]
+    if db_target_extension not in ("rdf","json"):
+        raise ValueError(f"Invalid db_target_file extension: {db_target_extension}")
     # Read all hostnames from source_file
     print("Reading hostname list...")
     with open(source_file,"r") as nsfile:
         nameservers = nsfile.read().splitlines()
     # Create list of hostnames to retry
     retry_nameservers = nameservers.copy()
+    max_workers = int(mp.cpu_count() * 3.75)
     # Run initial crawl of hostnames, with a timeout after 60 seconds
-    with ProcessPool(max_workers=mp.cpu_count()) as pool:
+    with ProcessPool(max_workers=max_workers) as pool:
         print("Starting initial crawling...")
         for nameserver in nameservers:
-            future = pool.schedule(json_nameserver_file, args=(nameserver,target_dir), timeout=60)
+            future = pool.schedule(create_nameserver_file, args=(nameserver,target_dir, db_target_extension), timeout=60)
             future.add_done_callback(create_completed_callback(nameserver, retry_nameservers)) 
     pool.join()
     # Recrawl any hostnames which timed out
-    with ProcessPool(max_workers=mp.cpu_count()) as pool:
+    with ProcessPool(max_workers=max_workers) as pool:
         print("Starting retry crawling")
         print(f"FINAL RETRY LIST: {retry_nameservers}")
         for nameserver in retry_nameservers:
-            future = pool.schedule(json_nameserver_file, args=(nameserver,target_dir))
+            future = pool.schedule(create_nameserver_file, args=(nameserver,target_dir, db_target_extension))
     pool.join()
     finish_crawl_time = time.time()
     crawl_duration = finish_crawl_time - start_time
@@ -109,31 +117,36 @@ def compile_nameserver_json(source_file,target_file, db_target_file):
                 outfile.write(infile.read())
                 outfile.write('\n'.encode('utf-8'))
                 infile.close()
-    print("Compiling nodelist_json into gzipped json file")
+    print(f"Compiling nodelist_output into gzipped {db_target_extension} file")
     with gzip.open(db_target_file,"wb") as outfile:
-        outfile.write("[".encode('utf-8'))
-        for file_count, filepath in enumerate(glob(f"{target_dir}/{nodelist_json_dirname}/*.json")):
+        # If outputting json file print opening brackets
+        if db_target_extension == "json":
+            outfile.write("[\n".encode('utf-8'))
+        for file_count, filepath in enumerate(sorted(glob(f"{target_dir}/{nodelist_dirname}/*.{db_target_extension}"))):
             with open(filepath, "rb") as infile:
                 print(f"Compiling file: {file_count + 1}. {filepath}")
-                # Add commas between JSON objects
                 if file_count > 1:
-                    outfile.write(','.encode('utf-8'))
+                    # Add comma and newline between JSON objects, otherwise just newline
+                    line_separator = ',\n' if db_target_extension == "json" else '\n'
+                    outfile.write(line_separator.encode('utf-8'))
                 data = infile.read().strip()
-                # Remove first and last characters from infile (opening and closing brackets) since each original
+                truncated_data = data
+                # If outputting JSON files, remove first and last characters 
+                # from infile (opening and closing brackets) since each original 
                 # JSON file contains an array with the collection of nodes
-                truncated_data = data[1:-1]
+                if db_target_extension == "json":
+                    truncated_data = truncated_data[1:-1]
                 outfile.write(truncated_data)
                 infile.close()
-        outfile.write("]\n".encode('utf-8'))
+        # If outputting json file print closing brackets
+        if db_target_extension == "json":
+            outfile.write("\n]".encode('utf-8'))
+        # Append newline to end of file
+        outfile.write("\n".encode('utf-8'))
     # Print missing hostnames, if any
     if len(missing_namservers) > 0:
         print("MISSING HOSTNAME LIST")
         print(missing_namservers)
-        for nameserver in missing_namservers:
-            if nameserver in completed_nameservers:
-                print(f"NAMESERVER COMPLETED: {nameserver}")
-            else:
-                print(f"NAMESERVER NOT COMPLETED: {nameserver}")
     else:
         print("NO MISSING HOSTNAMES")
     print("FINISHED")
@@ -152,5 +165,5 @@ def compile_nameserver_json(source_file,target_file, db_target_file):
     print(f"Est. nodes per hour: {nodes_crawled_per_hour}")
 
 if __name__ == "__main__":
-    compile_nameserver_json("gov-domains-test4.txt","data/gov-domains.jsonl","data/db-gov-domains.json.gz")
+    compile_nameserver_data("gov-domains-test2.txt","data","gov-domains.jsonl","db-gov-domains.json.gz")
 
