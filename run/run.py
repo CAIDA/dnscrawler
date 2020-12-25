@@ -18,7 +18,7 @@ domain_dict_dirname = "domain_dict"
 nodelist_dirname = "nodelist"
 # Crawl nameserver if it hasn't already been crawled
 # and output result to json file
-def create_nameserver_file(nameserver,output_dir, filetype):
+async def create_nameserver_file(nameserver,output_dir, filetype):
     try:
         print(f"Starting: {nameserver}")
         filename = nameserver
@@ -34,7 +34,7 @@ def create_nameserver_file(nameserver,output_dir, filetype):
         nodelist_filepath = f"{output_dir}/{nodelist_dirname}/{filename}.{filetype}"
         if not os.path.exists(domain_dict_filepath):
                 crawl_kwargs = {"name":nameserver, "is_ns":False, f"db_{filetype}":True, "version":version}
-                data = asyncio.run(resolver.get_domain_dict(**crawl_kwargs))
+                data = await resolver.get_domain_dict(**crawl_kwargs)
                 domain_dict = data['domain_dict']
                 if filetype == "json":
                     nodelist_output = json.dumps(data[filetype])
@@ -47,7 +47,8 @@ def create_nameserver_file(nameserver,output_dir, filetype):
             print(f"File found: {nameserver}")
         print(f"Finished: {nameserver}")
     except:
-        print("EXECUTION ERROR f{nameserver}")
+        print(f"EXECUTION ERROR {nameserver}")
+        raise asyncio.TimeoutError(f"{nameserver} timed out")
         print(sys.exc_info())
 
 # Handle post crawl operations, mainly the retry preocess
@@ -68,7 +69,7 @@ def create_completed_callback(nameserver, retry_nameservers):
 
 # Crawl all nameservers from a list in a source file
 # and compile their result json into a target file
-def compile_nameserver_data(source_file,target_dir, target_file, db_target_file):
+async def compile_nameserver_data(source_file,target_dir, target_file, db_target_file):
     start_time = time.time()
     print(f"Start Time: {start_time}")
     target_schema_filepath = target_dir + "/schema.txt"
@@ -86,21 +87,24 @@ def compile_nameserver_data(source_file,target_dir, target_file, db_target_file)
         nameservers = nsfile.read().splitlines()
     # Create list of hostnames to retry
     retry_nameservers = nameservers.copy()
-    max_workers = int(mp.cpu_count() * 3.75)
-    # Run initial crawl of hostnames, with a timeout after 60 seconds
-    with ProcessPool(max_workers=max_workers) as pool:
-        print("Starting initial crawling...")
-        for nameserver in nameservers:
-            future = pool.schedule(create_nameserver_file, args=(nameserver,target_dir, db_target_extension), timeout=60)
-            future.add_done_callback(create_completed_callback(nameserver, retry_nameservers)) 
-    pool.join()
+    
+    print("Starting initial crawling...")
+    inital_crawls = []
+    for nameserver in nameservers:
+        task = asyncio.create_task(create_nameserver_file(nameserver,target_dir, db_target_extension))
+        task.add_done_callback(create_completed_callback(nameserver, retry_nameservers)) 
+        inital_crawls.append(task)
+    initial_done, initial_pending = await asyncio.wait(inital_crawls, timeout=60)
+    # Cancel all pending tasks
+    for task in initial_pending:
+        task.cancel()
     # Recrawl any hostnames which timed out
-    with ProcessPool(max_workers=max_workers) as pool:
-        print("Starting retry crawling")
-        print(f"FINAL RETRY LIST: {retry_nameservers}")
-        for nameserver in retry_nameservers:
-            future = pool.schedule(create_nameserver_file, args=(nameserver,target_dir, db_target_extension))
-    pool.join()
+    retry_crawls = []
+    print("Starting retry crawling")
+    print(f"FINAL RETRY LIST: {retry_nameservers}")
+    for nameserver in retry_nameservers:
+        retry_crawls.append(create_nameserver_file(nameserver,target_dir, db_target_extension))
+    await asyncio.gather(*retry_crawls)
     finish_crawl_time = time.time()
     crawl_duration = finish_crawl_time - start_time
     # Duplicate list of hostnames, remove each hostname as the its file is compiled
@@ -165,5 +169,5 @@ def compile_nameserver_data(source_file,target_dir, target_file, db_target_file)
     print(f"Est. nodes per hour: {nodes_crawled_per_hour}")
 
 if __name__ == "__main__":
-    compile_nameserver_data("gov-domains-test2.txt","data","gov-domains.jsonl","db-gov-domains.json.gz")
+    asyncio.run(compile_nameserver_data("gov-domains-test3.txt","data","gov-domains.jsonl","db-gov-domains.json.gz"))
 
