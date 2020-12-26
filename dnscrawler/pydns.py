@@ -1,26 +1,26 @@
 from dns import asyncquery as dnsquery, message as dnsmessage, rdatatype
 from random import choice, random
-from functools import lru_cache
 from ipaddress import ip_address
 from collections import defaultdict
-from async_lru import alru_cache
 import socket
 import socks
 import asyncio
 import sys
 import time
 import math
+import logging 
 
 if __name__ == "pydns":
     import constants
-    from logger import log
     from asynciobackend import Backend
+    from lru_cache import LRUCache
 else:
     from . import constants
-    from . import constants
     from .asynciobackend import Backend
+    from .lru_cache import LRUCache
 
 
+logger = logging.getLogger(__name__)
 
 class PyDNS:
     def __init__(self, socket_factories, ipv4_only=False):
@@ -39,6 +39,8 @@ class PyDNS:
         # Set of nameservers to auto timeout all queries to
         self.timeout_nameservers = set()
         self.active_requests = defaultdict(list)
+        self.active_queries = {}
+        self.query_cache = LRUCache(8192)
 
     def create_socket_factory(self, addr, port):
         def socket_factory(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0,fileno=None):
@@ -133,10 +135,28 @@ class PyDNS:
             "records":"\n".join([record.to_text() for record in records]),
             "rcodes":rcodes
         }
-        
-    @alru_cache(maxsize=128)
+    
     async def query(self, domain,nameserver,record_types=("NS","A","AAAA")):
-        raw_response = await self.dns_response(domain,nameserver)
+        logger.debug(f"Query {domain} at {nameserver} for {record_types}")
+        # Create hashable key from query args
+        query_args_str = f"{domain}${nameserver}${'-'.join(record_types)}"
+        # If query results are in LRU Cache, return cached results
+        if self.query_cache.has(query_args_str):
+            logger.debug(f"Cache found of {domain} at {nameserver} for {record_types}")
+            return self.query_cache.get(query_args_str)
+        # If same query is currently being made, wait for that query
+        # to finish and return the results
+        # Else start new query and create event to block any other 
+        # identical queries that are made while this one finished executing
+        if query_args_str in self.active_queries:
+            logger.debug(f"Query of {domain} at {nameserver} for {record_types} already started")
+            query_event = self.active_queries[query_args_str]
+            await query_event.wait()
+            return self.query_cache.get(query_args_str)
+        else:
+            logger.debug(f"Starting query of {domain} at {nameserver} for {record_types}")
+            self.active_queries[query_args_str] = asyncio.Event()
+            raw_response = await self.dns_response(domain,nameserver)
         response = raw_response['records'].splitlines()
         # Return dns response as dict
         data = {}
@@ -157,14 +177,14 @@ class PyDNS:
             "domain":domain,
             "nameserver":nameserver
         }
-        return {
-            "data":data, 
-            "rcodes":raw_response['rcodes'],
-            "domain":domain,
-            "nameserver":nameserver
-        }
+        # Store latest query results in lru cache
+        self.query_cache.set(query_args_str, parsed_response)
+        # Unblock any concurrent identical results
+        self.active_queries[query_args_str].set()
+        # Remove query from active queries
+        del self.active_queries[query_args_str]
+        return parsed_response
 
-    @alru_cache(maxsize=128)
     async def query_root(self, domain,record_types=("NS","A","AAAA")):
         root_nameserver = choice(list(constants.ROOT_SERVERS.values()))
         return await self.query(domain,root_nameserver,record_types)
