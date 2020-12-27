@@ -2,9 +2,12 @@ import sys
 sys.path.append("../")
 from dnscrawler import DNSResolver, load_schema, DatabaseConnection
 from dnscrawler.logger import log
+import logging
 import json
 import asyncio
 import time
+
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(name)s %(levelname)s:%(message)s')
 
 async def main():
     with DatabaseConnection("localhost:9080") as db, load_schema() as schema_file:

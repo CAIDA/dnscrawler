@@ -2,10 +2,13 @@ import sys
 sys.path.append("../")
 from dnscrawler import DNSResolver, load_schema
 from dnscrawler.logger import log
+import logging
 import json
 import time
 
 import asyncio
+
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(name)s %(levelname)s:%(message)s')
 
 async def main():
     start_time = float(time.time())

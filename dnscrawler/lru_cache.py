@@ -4,13 +4,16 @@ class LRUCache:
     def __init__(self, capacity=128):
         self.capacity = capacity;
         self.cache = OrderedDict() if self.capacity is not None else {}
+        self.cache_info = {"hits":0, "misses":0, "capacity":self.capacity}
 
     def has(self, key):
         return key in self.cache
 
     def get(self, key):
         if not self.has(key):
+            self.cache_info['misses'] += 1
             return None
+        self.cache_info['hits'] += 1
         # If limited capacity move most recently accessed key to beginning
         if self.capacity is not None:
             self.cache.move_to_end(key)
@@ -32,3 +35,8 @@ class LRUCache:
 
     def pop(self):
         return self.cache.popitem(last=False)
+
+    def stats(self):
+        current_cache_info = self.cache_info.copy()
+        current_cache_info['size'] = self.size()
+        return current_cache_info

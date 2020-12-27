@@ -33,14 +33,17 @@ class PyDNS:
         self.first_send_time = None
         # Total number of queries sent
         self.queries_sent = 0
-        # Max and min queries per second
-        self.max_queries_per_second = 0
+        # Min, max, and avg queries per second
         self.min_queries_per_second = math.inf
+        self.max_queries_per_second = 0
+        self.avg_queries_per_second = 0
+        self.awaiting_qps_calc = False
         # Set of nameservers to auto timeout all queries to
         self.timeout_nameservers = set()
         self.active_requests = defaultdict(list)
         self.active_queries = {}
-        self.query_cache = LRUCache(8192)
+        self.concurrent_request_limiter = asyncio.Semaphore(constants.MAX_CONCURRENT_REQUESTS)
+        self.query_cache = LRUCache(constants.MAX_CACHED_QUERIES)
 
     def create_socket_factory(self, addr, port):
         def socket_factory(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0,fileno=None):
@@ -55,48 +58,63 @@ class PyDNS:
         else:
             return choice(list(self.socket_factories))
 
+    async def calculate_qps():
+        self.awaiting_qps_calc = True
+        current_period_starting_queries = self.queries_sent
+        await asyncio.sleep(1)
+        current_period_ending_queries = self.queries_sent
+        current_queries_per_second = current_period_ending_queries - current_period_starting_queries
+        self.max_queries_per_second = max(self.max_queries_per_second, queries_per_second)
+        self.min_queries_per_second = min(self.min_queries_per_second, queries_per_second)
+        self.avg_queries_per_second = self.queries_sent / (self.last_send_time - self.first_send_time)
+        self.awaiting_qps_calc = False
+
     async def send_request(self, request, nameserver, retries=0):
         block_nameserver = False
         response = {"rcode":"timeout", "records":[]}
-        current_time = time.time()
         # Multiply timeout duration by n each iteation (ie. if multiplier is 5, timeouts of 2s, 10s, 50s), 
         request_timeout = min(constants.REQUEST_TIMEOUT * (constants.TIMEOUT_MULTIPLIER ** retries), constants.MAX_TIMEOUT)
-        # Set last query sent time
-        self.last_send_time = current_time
-        # If first query set first_send_time
-        # Else start calculating queries per second
-        if not self.first_send_time:
-            self.first_send_time = current_time
-        else:
-            queries_per_second = self.queries_sent / (self.last_send_time - self.first_send_time)
-            self.max_queries_per_second = max(self.max_queries_per_second, queries_per_second)
-            self.min_queries_per_second = min(self.min_queries_per_second, queries_per_second)
-            # print(f"QPS = {queries_per_second}, MAX QPS = {self.max_queries_per_second}, MIN QPS = {self.min_queries_per_second}")
-        self.queries_sent +=1
-        # print(f"{self.queries_sent} queries sent")
         # Return timeout for all nameservers that have previously timed out
         if nameserver not in self.timeout_nameservers:
+            logger.debug(f"Starting request to {nameserver}")
+            # Restrict number of concurrent requests to prevent
+            # packet loss and avoid rate limiting
+            if self.concurrent_request_limiter.locked():
+                logger.debug("Waiting to send request: concurrent request limit hit")
+            await self.concurrent_request_limiter.acquire()
+            current_time = time.time()
+            # Set last query sent time
+            self.last_send_time = current_time
+            # Set first query sent time if not set
+            if not self.first_send_time:
+                self.first_send_time = current_time
+            self.queries_sent +=1
+            # Flag to detect if query succeeded
+            query_success = False
             try:
                 query_task = asyncio.create_task(dnsquery.udp(q=request, where=nameserver, backend=Backend()))
                 # Add request future to active_requests
                 self.active_requests[nameserver].append(query_task)
                 response_data = await asyncio.wait_for(query_task, timeout=request_timeout)
+                query_success = True
                 # Remove request future from active_requests
                 self.active_requests[nameserver].remove(query_task)
                 rcode = response_data.rcode()
                 records = response_data.answer + response_data.additional + response_data.authority
                 response = {"rcode":rcode, "records":records}
             except ConnectionRefusedError as err:
+                logger.warning(f"Skipping future requests to {nameserver} due to ConnectionRefusedError")
                 block_nameserver = True
             except ConnectionResetError as err:
+                logger.warning(f"Skipping future requests to {nameserver} due to ConnectionResetError")
                 block_nameserver = True
             except:
                 # Query Timeout
-                if retries < constants.REQUEST_RETRIES:
-                    response = await self.send_request(request, nameserver, retries+1)
-                else:
+                if retries > constants.REQUEST_RETRIES:
+                    logger.warning(f"Skipping future requests to {nameserver} due to repeated timeout")
                     block_nameserver = True
             finally:
+                self.concurrent_request_limiter.release()
                 if block_nameserver:
                     self.timeout_nameservers.add(nameserver)
                     # Cancel all active futures for the blocked nameserver
@@ -104,6 +122,10 @@ class PyDNS:
                         if not future.done():
                             future.cancel()
                         self.active_requests[nameserver].remove(future)
+                elif not query_success:
+                    response = await self.send_request(request, nameserver, retries+1)
+        else:
+            logger.debug(f"Request to {nameserver} skipped due to prior timeout")
         return response
 
     async def dns_response(self, domain,nameserver,retries=0):
