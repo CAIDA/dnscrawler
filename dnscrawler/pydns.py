@@ -42,7 +42,7 @@ class PyDNS:
         self.timeout_nameservers = set()
         self.active_requests = defaultdict(list)
         self.active_queries = {}
-        self.concurrent_request_limiter = asyncio.Semaphore(constants.MAX_CONCURRENT_REQUESTS)
+        self.concurrent_request_limiter = None
         self.query_cache = LRUCache(constants.MAX_CACHED_QUERIES)
 
     def create_socket_factory(self, addr, port):
@@ -77,6 +77,10 @@ class PyDNS:
         # Return timeout for all nameservers that have previously timed out
         if nameserver not in self.timeout_nameservers:
             logger.debug(f"Starting request to {nameserver}")
+            # Initialize request limiter in send request to avoid asyncio conflicting
+            # loop error if semaphore is not created within the same loop calling main
+            if not self.concurrent_request_limiter:
+                self.concurrent_request_limiter = asyncio.Semaphore(constants.MAX_CONCURRENT_REQUESTS)
             # Restrict number of concurrent requests to prevent
             # packet loss and avoid rate limiting
             if self.concurrent_request_limiter.locked():
