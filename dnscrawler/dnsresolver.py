@@ -26,7 +26,8 @@ else:
 
 class DNSResolver:
     # Get RFC 3339 timestamp
-    def get_timestamp(self):
+    @staticmethod
+    def get_timestamp():
         timestamp = datetime.now(timezone.utc).astimezone()
         return timestamp.isoformat()
 
@@ -55,6 +56,13 @@ class DNSResolver:
         };
         self.xid_cache = {}
         self.nameservers = defaultdict(set, self.root_servers)
+
+    async def __aenter__(self):
+        await self.pydns.__aenter__()
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        await self.pydns.__aexit__(exc_type, exc, tb)
 
     # Return a random rootserver for querying
     def get_root_server(self):

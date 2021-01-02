@@ -1,4 +1,3 @@
-
 import socket
 import asyncio
 
@@ -25,14 +24,14 @@ class _AsyncioDatagramProtocol(_DatagramProtocol):
             try:
                 self.recvfrom.set_exception(exc)
             except asyncio.InvalidStateError:
-                print("running")
+                pass
 
     def connection_lost(self, exc):
         if self.recvfrom and not self.recvfrom.done():
             try:
                 self.recvfrom.set_exception(exc)
             except asyncio.InvalidStateError:
-                print("running")
+                pass
 
     def close(self):
         self.transport.close()

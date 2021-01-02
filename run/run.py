@@ -17,13 +17,12 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(name)s %(levelnam
 
 logger = logging.getLogger(__name__)
 
-resolver = DNSResolver(ipv4_only=True)
-version = resolver.get_timestamp()
+version = DNSResolver.get_timestamp()
 domain_dict_dirname = "domain_dict"
 nodelist_dirname = "nodelist"
 # Crawl nameserver if it hasn't already been crawled
 # and output result to json file
-async def create_nameserver_file(nameserver,target_dir, filetype):
+async def create_nameserver_file(resolver, nameserver,target_dir, filetype):
     logger.info(f"Starting: {nameserver}")
     filename = nameserver
     # Create paths and directories for precompiled domain_dicts and nodelist json
@@ -71,9 +70,11 @@ async def compile_nameserver_data(source_file,target_dir, target_file, db_target
         nameservers = nsfile.read().splitlines()
     logger.info("Starting initial crawling...")
     crawl_list = []
-    for nameserver in nameservers:
-        crawl_list.append(create_nameserver_file(nameserver, target_dir, db_target_extension))
-    await asyncio.gather(*crawl_list)
+
+    async with DNSResolver(ipv4_only=True) as resolver:
+        for nameserver in nameservers:
+            crawl_list.append(create_nameserver_file(resolver, nameserver, target_dir, db_target_extension))
+        await asyncio.gather(*crawl_list)
     finish_crawl_time = time.time()
     crawl_duration = finish_crawl_time - start_time
     # Duplicate list of hostnames, remove each hostname as the its file is compiled
@@ -136,6 +137,7 @@ async def compile_nameserver_data(source_file,target_dir, target_file, db_target
     nodes_crawled_per_hour = 3600 / crawl_duration_per_node
     logger.info(f"Average crawl time: {crawl_duration_per_node}s")
     logger.info(f"Est. nodes per hour: {nodes_crawled_per_hour}")
+    logger.info(json.dumps(resolver.pydns.stats(), indent=4))
 
 if __name__ == "__main__":
     asyncio.run(compile_nameserver_data("gov-domains-test2.txt","data","gov-domains.jsonl","db-gov-domains.json.gz"))
