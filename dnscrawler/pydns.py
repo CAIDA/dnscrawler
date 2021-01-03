@@ -15,16 +15,18 @@ if __name__ == "pydns":
     from asynciobackend import Backend
     from lrucache import LRUCache
     from ratelimiter import RateLimiter
+    from .contextmanager import AsyncContextManager
 else:
     from . import constants
     from .asynciobackend import Backend
     from .lrucache import LRUCache
     from .ratelimiter import RateLimiter
+    from .contextmanager import AsyncContextManager
 
 
 logger = logging.getLogger(__name__)
 
-class PyDNS:
+class PyDNS(AsyncContextManager):
     def __init__(
         self, 
         socket_factories, 
@@ -33,7 +35,8 @@ class PyDNS:
         MAX_CACHED_QUERIES=None,
         MAX_REQUESTS_PER_NAMESERVER_SECOND=None
     ):
-        self.socket_factories = [socket.socket] + [self.create_socket_factory(factory['addr'], factory['port']) for factory in socket_factories];
+        super().__init__()
+        self.socket_factories = [socket.socket] + [self.create_socket_factory(factory['addr'], factory['port']) for factory in socket_factories]
         self.only_default_factory = len(self.socket_factories) == 1
         self.ipv4_only = ipv4_only
         # Total number of queries sent
@@ -53,17 +56,18 @@ class PyDNS:
         self.MAX_CONCURRENT_REQUESTS = MAX_CONCURRENT_REQUESTS or constants.MAX_CONCURRENT_REQUESTS
         self.MAX_REQUESTS_PER_NAMESERVER_SECOND = MAX_REQUESTS_PER_NAMESERVER_SECOND or constants.MAX_REQUESTS_PER_NAMESERVER_SECOND
         self.query_cache = LRUCache(self.MAX_CACHED_QUERIES)
-        self.task_list = []
+        self.awaitable_list = []
 
     async def __aenter__(self):
         self.concurrent_request_limiter = asyncio.Semaphore(self.MAX_CONCURRENT_REQUESTS)
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
-        exit_tasks = [task for task in self.task_list if not task.done()]
         for ratelimiter in self.nameserver_ratelimiters.values():
-            exit_tasks.append(ratelimiter.__aexit__(exc_type, exc, tb))
-        await asyncio.gather(*exit_tasks)
+            ratelimiter_exit_task = asyncio.create_task(ratelimiter.__aexit__(exc_type, exc, tb))
+            self.awaitable_list.append(ratelimiter_exit_task)
+        await super().__aexit__(exc_type, exc, tb, __name__)
+
 
     def create_socket_factory(self, addr, port):
         def socket_factory(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0,fileno=None):
@@ -79,6 +83,12 @@ class PyDNS:
             return choice(list(self.socket_factories))
 
     def stats(self):
+        ratelimiter_data = []
+        for nameserver, ratelimiter in self.nameserver_ratelimiters.items():
+            stats = ratelimiter.stats()
+            stats["name"] = nameserver
+            ratelimiter_data.append(stats)
+        ratelimiter_data.sort(key=lambda x:x['action_count'], reverse=True)
         return {
             "MAX_CACHED_QUERIES":self.MAX_CACHED_QUERIES,
             "MAX_CONCURRENT_REQUESTS":self.MAX_CONCURRENT_REQUESTS,
@@ -86,7 +96,8 @@ class PyDNS:
             "min_requests_per_second":self.min_requests_per_second,
             "max_requests_per_second":self.max_requests_per_second,
             "avg_requests_per_second":self.avg_requests_per_second,
-            "query_cache":self.query_cache.stats()
+            "query_cache":self.query_cache.stats(),
+            "nameserver_ratelimiters":ratelimiter_data[:constants.MAX_RETURNED_RATELIMITER_STATS]
         }
 
     async def calculate_rps(self):
@@ -117,24 +128,14 @@ class PyDNS:
             # Begin calculating rps if not started
             if not self.awaiting_rps_calc:
                 self.awaiting_rps_calc = True
-                self.task_list.append(asyncio.create_task(self.calculate_rps()))
+                self.awaitable_list.append(asyncio.create_task(self.calculate_rps()))
             # Flag to detect if requests succeeded
             request_success = False
             try:
-                # Run request ratelimited by nameserver
-                if nameserver not in self.nameserver_ratelimiters:
-                    # Create ratelimiter if not exists
-                    ns_ratelimiter = RateLimiter(max_actions=self.MAX_REQUESTS_PER_NAMESERVER_SECOND)
-                    await ns_ratelimiter.__aenter__()
-                    self.nameserver_ratelimiters[nameserver] = ns_ratelimiter
-                else:
-                    ns_ratelimiter = self.nameserver_ratelimiters[nameserver]
-                if ns_ratelimiter.ratelimit_hit():
-                    logger.warning(f"Request ratelimit hit for {nameserver}")
                 query_request = dnsquery.udp(q=request, where=nameserver, backend=Backend())
                 query_coro = asyncio.wait_for(query_request, timeout=request_timeout)
-                query_task = asyncio.create_task(ns_ratelimiter.run(query_coro))
-                self.task_list.append(query_task)
+                query_task = asyncio.create_task(query_coro)
+                self.awaitable_list.append(query_task)
                 # Add request future to active_requests
                 self.active_requests[nameserver].append(query_task)
                 response_data = await query_task
@@ -172,8 +173,7 @@ class PyDNS:
         return response
 
     async def dns_response(self, domain,nameserver,record_types):
-        # print(f"querying {domain} at {nameserver}")
-        logger.debug(f"Preparing request to {nameserver}")
+        logger.debug(f"Preparing request to {nameserver} for {domain}")
         records = []
         rcodes = {}
         # If ipv4_only flag set, return timeout for all ipv6 queries
@@ -183,7 +183,17 @@ class PyDNS:
             requests = []
             for rtype in record_types:
                 request = dnsmessage.make_query(domain, getattr(rdatatype, rtype))
-                requests.append(self.send_request(request, nameserver))
+                # Run request ratelimited by nameserver
+                if nameserver not in self.nameserver_ratelimiters:
+                    # Create ratelimiter if not exists
+                    ns_ratelimiter = RateLimiter(max_actions=self.MAX_REQUESTS_PER_NAMESERVER_SECOND)
+                    await ns_ratelimiter.__aenter__()
+                    self.nameserver_ratelimiters[nameserver] = ns_ratelimiter
+                else:
+                    ns_ratelimiter = self.nameserver_ratelimiters[nameserver]
+                if ns_ratelimiter.ratelimit_hit():
+                    logger.warning(f"Request ratelimit hit for {nameserver}")
+                requests.append(ns_ratelimiter.run(self.send_request(request, nameserver)))
             responses = await asyncio.gather(*requests)
             for i, rtype in enumerate(record_types):
                 response_data = responses[i]
