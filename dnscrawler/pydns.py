@@ -8,6 +8,7 @@ import asyncio
 import sys
 import time
 import math
+import os
 import logging 
 
 if __name__ == "pydns":
@@ -33,7 +34,8 @@ class PyDNS(AsyncContextManager):
         ipv4_only=False, 
         MAX_CONCURRENT_REQUESTS = None, 
         MAX_CACHED_QUERIES=None,
-        MAX_REQUESTS_PER_NAMESERVER_SECOND=None
+        MAX_REQUESTS_PER_NAMESERVER_SECOND=None,
+        MAX_REQUESTS_PER_TLD_NAMESERVER_SECOND=None
     ):
         super().__init__()
         self.socket_factories = [socket.socket] + [self.create_socket_factory(factory['addr'], factory['port']) for factory in socket_factories]
@@ -55,8 +57,15 @@ class PyDNS(AsyncContextManager):
         self.MAX_CACHED_QUERIES = MAX_CACHED_QUERIES or constants.MAX_CACHED_QUERIES
         self.MAX_CONCURRENT_REQUESTS = MAX_CONCURRENT_REQUESTS or constants.MAX_CONCURRENT_REQUESTS
         self.MAX_REQUESTS_PER_NAMESERVER_SECOND = MAX_REQUESTS_PER_NAMESERVER_SECOND or constants.MAX_REQUESTS_PER_NAMESERVER_SECOND
+        self.MAX_REQUESTS_PER_TLD_NAMESERVER_SECOND = MAX_REQUESTS_PER_TLD_NAMESERVER_SECOND or constants.MAX_REQUESTS_PER_TLD_NAMESERVER_SECOND
         self.query_cache = LRUCache(self.MAX_CACHED_QUERIES)
         self.awaitable_list = []
+        self.tld_nameserver_ips = []
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        with open(f"{dir_path}/public_suffix_ips.txt", "r") as ps_tld_ip_file:
+            for row in ps_tld_ip_file:
+                ip = row.strip().lower()
+                self.tld_nameserver_ips.append(ip)
 
     async def __aenter__(self):
         self.concurrent_request_limiter = asyncio.Semaphore(self.MAX_CONCURRENT_REQUESTS)
@@ -93,6 +102,7 @@ class PyDNS(AsyncContextManager):
             "MAX_CACHED_QUERIES":self.MAX_CACHED_QUERIES,
             "MAX_CONCURRENT_REQUESTS":self.MAX_CONCURRENT_REQUESTS,
             "MAX_REQUESTS_PER_NAMESERVER_SECOND":self.MAX_REQUESTS_PER_NAMESERVER_SECOND,
+            "MAX_REQUESTS_PER_TLD_NAMESERVER_SECOND":self.MAX_REQUESTS_PER_TLD_NAMESERVER_SECOND,
             "min_requests_per_second":self.min_requests_per_second,
             "max_requests_per_second":self.max_requests_per_second,
             "avg_requests_per_second":self.avg_requests_per_second,
@@ -112,14 +122,14 @@ class PyDNS(AsyncContextManager):
         self.request_measurement_count += 1
         self.awaiting_rps_calc = False
 
-    async def send_request(self, request, nameserver, retries=0):
+    async def send_request(self, request, domain, nameserver, retries=0):
         block_nameserver = False
         response = {"rcode":"timeout", "records":[]}
         # Multiply timeout duration by n each iteation (ie. if multiplier is 5, timeouts of 2s, 10s, 50s), 
         request_timeout = min(constants.REQUEST_TIMEOUT * (constants.TIMEOUT_MULTIPLIER ** retries), constants.MAX_TIMEOUT)
         # Return timeout for all nameservers that have previously timed out
         if nameserver not in self.timeout_nameservers:
-            logger.debug(f"Starting request to {nameserver}")
+            logger.debug(f"Starting request to {nameserver} for {domain}")
             # Restrict number of concurrent requests to prevent
             # packet loss and avoid rate limiting
             if self.concurrent_request_limiter.locked():
@@ -167,7 +177,8 @@ class PyDNS(AsyncContextManager):
                             future.cancel()
                         self.active_requests[nameserver].remove(future)
                 elif not request_success:
-                    response = await self.send_request(request, nameserver, retries+1)
+                    ns_ratelimiter = self.nameserver_ratelimiters[nameserver] 
+                    response = await ns_ratelimiter.run(self.send_request(request, domain, nameserver, retries+1))
         else:
             logger.debug(f"Request to {nameserver} skipped due to prior timeout")
         return response
@@ -185,15 +196,17 @@ class PyDNS(AsyncContextManager):
                 request = dnsmessage.make_query(domain, getattr(rdatatype, rtype))
                 # Run request ratelimited by nameserver
                 if nameserver not in self.nameserver_ratelimiters:
+                    max_actions = self.MAX_REQUESTS_PER_TLD_NAMESERVER_SECOND if nameserver.lower() \
+                            in self.tld_nameserver_ips else self.MAX_REQUESTS_PER_NAMESERVER_SECOND 
                     # Create ratelimiter if not exists
-                    ns_ratelimiter = RateLimiter(max_actions=self.MAX_REQUESTS_PER_NAMESERVER_SECOND)
+                    ns_ratelimiter = RateLimiter(max_actions=max_actions)
                     await ns_ratelimiter.__aenter__()
                     self.nameserver_ratelimiters[nameserver] = ns_ratelimiter
                 else:
                     ns_ratelimiter = self.nameserver_ratelimiters[nameserver]
                 if ns_ratelimiter.ratelimit_hit():
                     logger.warning(f"Request ratelimit hit for {nameserver}")
-                requests.append(ns_ratelimiter.run(self.send_request(request, nameserver)))
+                requests.append(ns_ratelimiter.run(self.send_request(request, domain, nameserver)))
             responses = await asyncio.gather(*requests)
             for i, rtype in enumerate(record_types):
                 response_data = responses[i]

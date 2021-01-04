@@ -62,6 +62,7 @@ class RateLimiter(AsyncContextManager):
             "max_measured_actions_per_window":self.max_measured_actions_per_window,
             "avg_measured_actions_per_window":self.avg_measured_actions_per_window,
             "action_count":self.action_count,
+            "reset_count":self.reset_count,
         }
 
     async def reset_limit(self, current_period_actions_start):

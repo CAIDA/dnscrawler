@@ -23,7 +23,7 @@ async def main():
         # Hazardous domain
         # domain_dict = await resolver.get_domain_dict("PREGNANCYCALCULATE.COM.")
         # Cross zone loops
-        # domain_dict = await resolver.get_domain_dict("amazon.com")
+        domain_dict = await resolver.get_domain_dict("amazon.com")
         # Early ns records
         # domain_dict = await resolver.get_domain_dict("aridns.net.au")
         # Retry domain records due to timeout

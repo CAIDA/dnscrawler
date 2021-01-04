@@ -71,7 +71,7 @@ async def compile_nameserver_data(source_file,target_dir, target_file, db_target
     logger.info("Starting initial crawling...")
     crawl_list = []
 
-    async with DNSResolver(ipv4_only=True) as resolver:
+    async with DNSResolver() as resolver:
         for nameserver in nameservers:
             crawl_list.append(create_nameserver_file(resolver, nameserver, target_dir, db_target_extension))
         await asyncio.gather(*crawl_list)
@@ -140,5 +140,5 @@ async def compile_nameserver_data(source_file,target_dir, target_file, db_target
     logger.info(json.dumps(resolver.pydns.stats(), indent=4))
 
 if __name__ == "__main__":
-    asyncio.run(compile_nameserver_data("gov-domains-test2.txt","data","gov-domains.jsonl","db-gov-domains.json.gz"))
+    asyncio.run(compile_nameserver_data("gov-domains.txt","data","gov-domains.jsonl","gov-domains2.rdf.gz"))
 
