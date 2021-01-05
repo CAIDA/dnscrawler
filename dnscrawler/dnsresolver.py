@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import os
 import time
 import asyncio
+import logging
 
 if __name__ == "__main__":
     import constants
@@ -23,6 +24,8 @@ else:
     from .querysummarylist import QuerySummaryList
     from .node import Node
     from .nodelist import NodeList
+
+logger = logging.getLogger(__name__)
 
 class DNSResolver:
     # Get RFC 3339 timestamp
@@ -152,9 +155,13 @@ class DNSResolver:
                 elif len(ns_name_parts) > 1:
                     output_dict[prefix+'sld'].add(sanitized_ns_name)
                     output_dict[prefix+'tld'].add(f"{'.'.join(ns_name_parts[1:])}.")
-                else:
+                elif len(ns_name_parts) > 0:
                     output_dict[prefix+'tld'].add(f"{ns_name_parts[0]}.")
-
+                else:
+                    logger.debug(f"Nameserver {ns_name} has no ns_name_parts")
+                    logger.debug(extracted_ns)
+                    logger.debug(current_name)
+                    raise TypeError()
                 # Add data for current_name
                 if len(extracted_current.domain) > 0:
                     output_dict[prefix+'sld'].add(f"{extracted_current.domain}.{extracted_current.suffix}.")

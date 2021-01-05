@@ -13,7 +13,10 @@ import time
 import asyncio
 import logging
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(name)s %(levelname)s:%(message)s')
+logging.basicConfig(handlers=[
+        logging.FileHandler("dnscrawler.log"),
+        logging.StreamHandler()
+    ], level=logging.DEBUG, format='%(asctime)s %(name)s %(levelname)s:%(message)s')
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +39,7 @@ async def create_nameserver_file(resolver, nameserver,target_dir, filetype):
     domain_dict_filepath = f"{target_dir}/{domain_dict_dirname}/{filename}.json"
     nodelist_filepath = f"{target_dir}/{nodelist_dirname}/{filename}.{filetype}"
     if not os.path.exists(domain_dict_filepath):
-        crawl_kwargs = {"name":nameserver, "is_ns":False, f"db_{filetype}":True, "version":version}
+        crawl_kwargs = {"name":nameserver, "is_ns":True, f"db_{filetype}":True, "version":version}
         data = await resolver.get_domain_dict(**crawl_kwargs)
         domain_dict = data['domain_dict']
         if filetype == "json":
@@ -140,5 +143,5 @@ async def compile_nameserver_data(source_file,target_dir, target_file, db_target
     logger.info(json.dumps(resolver.pydns.stats(), indent=4))
 
 if __name__ == "__main__":
-    asyncio.run(compile_nameserver_data("gov-domains.txt","data","gov-domains.jsonl","gov-domains2.rdf.gz"))
+    asyncio.run(compile_nameserver_data("ns_list_test.txt","data","ns-list.jsonl","ns-list.rdf.gz"))
 
