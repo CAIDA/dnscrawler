@@ -90,7 +90,7 @@ class Node:
             try:
                 ip = ip_address(name)
                 return f"ipv{ip.version}"
-            except:
+            except ValueError:
                 extracted_name = extract(name)
                 if extracted_name.domain == '':
                     return "public_suffix_tld"

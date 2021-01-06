@@ -28,8 +28,6 @@ class AsyncContextManager:
                 raise TypeError("Non-awaitable found in awaitable list:", aw)
         for aw in exit_awaitables:
             try:
-                logger.debug(f"Handling {name} closing awaitable:")
-                logger.debug(aw)
                 await aw
-            except:
-                logger.error(f"Error handling awaitable {aw}:", sys.exc_info())
+            except Exception as exc:
+                logger.exception(f"Error handling awaitable {aw}:", sys.exc_info())

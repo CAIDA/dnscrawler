@@ -165,7 +165,7 @@ class PyDNS(AsyncContextManager):
             except ConnectionResetError as err:
                 logger.warning(f"Skipping future requests to {nameserver} due to ConnectionResetError")
                 block_nameserver = True
-            except:
+            except Exception:
                 # Query Timeout
                 if retries > constants.REQUEST_RETRIES:
                     logger.warning(f"Skipping future requests to {nameserver} due to repeated timeout")
