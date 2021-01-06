@@ -135,17 +135,22 @@ class DNSResolver:
                         if is_ns:
                             ns_set.add(current_name)
         # Compile sets of all ips for authoritative ns into auth_ns
+        # Seperate ns_name and current_name by domain and suffix in order to avoid
+        # reresolution if both the ns and the current_name belong to the same domain
+        # (ie. don't reresolve ns1.example.com if current name is example.com)
+        extracted_current = extract(current_name)
+        current_name_parts = [part for part in extracted_current.domain.split('.')+extracted_current.suffix.split('.') if len(part) > 0]
+        sanitized_current_name = f"{'.'.join(current_name_parts)}."
         for ns_name in ns_set:
-            # Seperate ns_name and current_name by domain and suffix in order to avoid
-            # reresolution if both the ns and the current_name belong to the same domain
-            # (ie. don't reresolve ns1.example.com if current name is example.com)
+            # If ns name is '.' skip further parsing for current iteration and
+            # pass an empty set for ip addresses
+            if ns_name == ".":
+                auth_ns[ns_name] = {}
+                continue
             extracted_ns = extract(ns_name)
-            extracted_current = extract(current_name)
             # Get sanitized name (domain + suffix) for checking if in active_resolutions
             ns_name_parts = [part for part in extracted_ns.domain.split('.')+extracted_ns.suffix.split('.') if len(part) > 0]
-            current_name_parts = [part for part in extracted_current.domain.split('.')+extracted_current.suffix.split('.') if len(part) > 0]
             sanitized_ns_name = f"{'.'.join(ns_name_parts)}."
-            sanitized_current_name = f"{'.'.join(current_name_parts)}."
             # Add TLD and SLD data to output_dict
             if output_dict is not None:
                 # Add data for each ns
@@ -169,7 +174,7 @@ class DNSResolver:
                 elif len(current_name_parts) > 1:
                     output_dict[prefix+'sld'].add(sanitized_current_name)
                     output_dict[prefix+'tld'].add(f"{'.'.join(current_name_parts[1:])}.")
-                else:
+                elif len(current_name_parts) > 1:
                     output_dict[prefix+'tld'].add(f"{current_name_parts[0]}.")
             # If ip for the hostname is provided in the additional section then use that
             if ns_name in ip_dict:
@@ -257,7 +262,7 @@ class DNSResolver:
         if name in self.past_resolutions:
             return self.past_resolutions[name]
         # If name is only tld
-        isTLD = len(name_parts) == 1
+        isTLD = len(name_parts) <= 1
         # If extracted_name doesn't have a domain then name must be a public suffix
         if extracted_name.domain == '':
             prefix = "ps_"
@@ -324,11 +329,11 @@ class DNSResolver:
                     if not ns_timed_out:
                         has_valid_response = True
                         # Flag to check if current response is NXDOMAIN
-                        nxdomain = query_response['rcodes'][2] == 3
+                        nxdomain = query_response['rcodes']['NS'] == 3
                         if not nxdomain:
                             all_nxdomain = False
                             # If RCODE is 0 (NOERROR) then recycle current ip address for next set of queries
-                            if query_response['rcodes'][2] == 0:
+                            if query_response['rcodes']['NS'] == 0:
                                 current_node.trusts(nameserver_node, node_trust_type)
                                 new_auth_ns[nameserver].add(ip)
                                 continue
@@ -344,7 +349,7 @@ class DNSResolver:
                                 records = query_response['data'].values()
                                 if len(records) == 0:
                                     ns_timed_out = "timeout" in query_response['rcodes']
-                                    if not ns_timed_out and query_response['rcodes'][2] == 0:
+                                    if not ns_timed_out and query_response['rcodes']['NS'] == 0:
                                         new_auth_ns[nameserver].add(ip)
                                         current_node.trusts(nameserver_node, node_trust_type)
                                         continue
@@ -355,18 +360,26 @@ class DNSResolver:
                     has_valid_response = True
                     all_nxdomain = False
                     empty_nonterminal = False
-                # If isTLD do not provide output_dict for parse as tlds do not need to be recursed
-                new_auth_ns.update(
-                    await self.parse(
-                        query_name, 
-                        records, 
-                        output_dict if not isTLD else None, prefix, 
-                        is_ns=is_ns, 
-                        current_node=current_node, 
-                        node_list=node_list,
-                        node_trust_type=node_trust_type
-                    )
+
+                # Compile returned records into dictionary of authoritative nameservers
+                # and their corresponding ip addresses
+                parsed_records = await self.parse(
+                    query_name, 
+                    records, 
+                    output_dict if not isTLD else None, prefix, 
+                    is_ns=is_ns, 
+                    current_node=current_node, 
+                    node_list=node_list,
+                    node_trust_type=node_trust_type
                 )
+                # If one of the returned nameservers is '.' mark as invalid 
+                # NS record data misconfiguration
+                if '.' in parsed_records:
+                    output_dict['misconfigured_domains']['invalid_ns_record'].add(
+                        QuerySummary(name=name,rcodes=query_response['rcodes'], nameserver=query_response['nameserver'])
+                    )
+                # Add current set parsed records to dictionary of parsed records
+                new_auth_ns.update(parsed_records)
             # If auth_ns is still empty => query returned no nameservers so domain is hazardous,
             # unless a cyclic dependency has occurred, in which case nameserver will be added to nonhazardous domains
             # Else if empty_nonterminal flag is still set, mark current node as empty nonterminal

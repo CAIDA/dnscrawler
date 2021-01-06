@@ -122,14 +122,17 @@ class PyDNS(AsyncContextManager):
         self.request_measurement_count += 1
         self.awaiting_rps_calc = False
 
-    async def send_request(self, request, domain, nameserver, retries=0):
+    async def send_request(self, request, nameserver, retries=0):
+        question = request.question[0]
+        domain = question.name
+        rdtype_text = rdatatype.to_text(question.rdtype)
         block_nameserver = False
         response = {"rcode":"timeout", "records":[]}
         # Multiply timeout duration by n each iteation (ie. if multiplier is 5, timeouts of 2s, 10s, 50s), 
         request_timeout = min(constants.REQUEST_TIMEOUT * (constants.TIMEOUT_MULTIPLIER ** retries), constants.MAX_TIMEOUT)
         # Return timeout for all nameservers that have previously timed out
         if nameserver not in self.timeout_nameservers:
-            logger.debug(f"Starting request to {nameserver} for {domain}")
+            logger.debug(f"Starting {rdtype_text} request to {nameserver} for {domain}")
             # Restrict number of concurrent requests to prevent
             # packet loss and avoid rate limiting
             if self.concurrent_request_limiter.locked():
@@ -178,7 +181,7 @@ class PyDNS(AsyncContextManager):
                         self.active_requests[nameserver].remove(future)
                 elif not request_success:
                     ns_ratelimiter = self.nameserver_ratelimiters[nameserver] 
-                    response = await ns_ratelimiter.run(self.send_request(request, domain, nameserver, retries+1))
+                    response = await ns_ratelimiter.run(self.send_request(request, nameserver, retries+1))
         else:
             logger.debug(f"Request to {nameserver} skipped due to prior timeout")
         return response
@@ -192,8 +195,8 @@ class PyDNS(AsyncContextManager):
         if (not self.ipv4_only or ip_address(nameserver).version == 4) and nameserver not in self.timeout_nameservers:
             # dnsquery.socket_factory = self.get_socket_factory()
             requests = []
-            for rtype in record_types:
-                request = dnsmessage.make_query(domain, getattr(rdatatype, rtype))
+            for rdtype_text in record_types:
+                request = dnsmessage.make_query(domain, rdatatype.from_text(rdtype_text))
                 # Run request ratelimited by nameserver
                 if nameserver not in self.nameserver_ratelimiters:
                     max_actions = self.MAX_REQUESTS_PER_TLD_NAMESERVER_SECOND if nameserver.lower() \
@@ -206,16 +209,16 @@ class PyDNS(AsyncContextManager):
                     ns_ratelimiter = self.nameserver_ratelimiters[nameserver]
                 if ns_ratelimiter.ratelimit_hit():
                     logger.warning(f"Request ratelimit hit for {nameserver}")
-                requests.append(ns_ratelimiter.run(self.send_request(request, domain, nameserver)))
+                requests.append(ns_ratelimiter.run(self.send_request(request, nameserver)))
             responses = await asyncio.gather(*requests)
-            for i, rtype in enumerate(record_types):
+            for i, rdtype_text in enumerate(record_types):
                 response_data = responses[i]
                 # If any query timed out return no records
                 if response_data['rcode'] == "timeout":
                     rcodes['timeout'] = True
                     return {"records":"","rcodes":rcodes}
                 # Otherwise compile request responses
-                rcodes[getattr(rdatatype, rtype)] = response_data['rcode']
+                rcodes[rdtype_text] = response_data['rcode']
                 records += response_data['records']
         else:
             rcodes['timeout'] = True
