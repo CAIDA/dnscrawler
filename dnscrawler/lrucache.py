@@ -1,10 +1,11 @@
 from collections import OrderedDict
 
+
 class LRUCache:
     def __init__(self, capacity=128):
-        self.capacity = capacity;
+        self.capacity = capacity
         self.cache = OrderedDict() if self.capacity is not None else {}
-        self.cache_info = {"hits":0, "misses":0, "capacity":self.capacity}
+        self.cache_info = {"hits": 0, "misses": 0, "capacity": self.capacity}
 
     def has(self, key):
         return key in self.cache
@@ -18,7 +19,6 @@ class LRUCache:
         if self.capacity is not None:
             self.cache.move_to_end(key)
         return self.cache[key]
-            
 
     def set(self, key, value):
         if self.is_full():

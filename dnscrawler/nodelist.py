@@ -12,7 +12,7 @@ class NodeList:
         # add node to node list, Else merge old and new node
         if not self.contains(node):
             self.nodes[node.xid()] = node
-        else:    
+        else:
             # Create set of nodes already merged in current recursive merge
             if not merged_xids:
                 merged_xids = set()
@@ -27,9 +27,10 @@ class NodeList:
                 oldNode.is_public_suffix = oldNode.is_public_suffix or node.is_public_suffix
                 oldNode.is_empty_nonterminal = oldNode.is_empty_nonterminal or node.is_empty_nonterminal
                 oldNode.misconfigurations.update(node.misconfigurations)
-                # Merge each node list between old node 
+                # Merge each node list between old node
                 for key, nodelist in node._trusts.items():
-                    oldNode._trusts[key].merge(nodelist, merged_xids, oldNode.is_public_suffix)
+                    oldNode._trusts[key].merge(
+                        nodelist, merged_xids, oldNode.is_public_suffix)
         return node
 
     def contains(self, node):
@@ -41,7 +42,7 @@ class NodeList:
         other.nodes = self.nodes
 
     def sorted_nodes(self):
-        return sorted(self.nodes.values(), key=lambda node:node.xid())
+        return sorted(self.nodes.values(), key=lambda node: node.xid())
 
     def json(self, full_data=True):
         return [node.json(full_data) for node in self.sorted_nodes()]

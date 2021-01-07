@@ -1,11 +1,10 @@
-import asyncio
 import math
 import time
 
-if __name__ == "ratelimiter":
-    from contextmanager import AsyncContextManager
-else:
-    from .contextmanager import AsyncContextManager
+import asyncio
+
+from dnscrawler.contextmanager import AsyncContextManager
+
 
 class RateLimiter(AsyncContextManager):
     # max_actions - number actions that can be taken in a given window of time
@@ -28,7 +27,7 @@ class RateLimiter(AsyncContextManager):
             self.ratelimit_reset = asyncio.Event()
         return self
 
-    async def __aexit__(self,exc_type, exc, tb):
+    async def __aexit__(self, exc_type, exc, tb):
         await super().__aexit__(exc_type, exc, tb, __name__)
 
     async def run(self, action):
@@ -37,9 +36,11 @@ class RateLimiter(AsyncContextManager):
         # Create a reset task if one hasn't already been created
         if not self.awaiting_reset:
             self.awaiting_reset = True
-            reset_task = asyncio.create_task(self.reset_limit(self.action_count))
+            reset_task = asyncio.create_task(
+                self.reset_limit(self.action_count))
             self.awaitable_list.append(reset_task)
-        # Run tasks till ratelimit is hit, then wait till window resets before running more tasks
+        # Run tasks till ratelimit is hit, then wait till window resets before
+        # running more tasks
         if not self.ratelimit_hit():
             self.current_actions_per_window += 1
             self.action_count += 1
@@ -56,23 +57,27 @@ class RateLimiter(AsyncContextManager):
 
     def stats(self):
         return {
-            "window_size":self.action_window,
-            "max_actions_per_window":self.max_actions_per_window,
-            "min_measured_actions_per_window":self.min_measured_actions_per_window,
-            "max_measured_actions_per_window":self.max_measured_actions_per_window,
-            "avg_measured_actions_per_window":self.avg_measured_actions_per_window,
-            "action_count":self.action_count,
-            "reset_count":self.reset_count,
+            "window_size": self.action_window,
+            "max_actions_per_window": self.max_actions_per_window,
+            "min_measured_actions_per_window": self.min_measured_actions_per_window,
+            "max_measured_actions_per_window": self.max_measured_actions_per_window,
+            "avg_measured_actions_per_window": self.avg_measured_actions_per_window,
+            "action_count": self.action_count,
+            "reset_count": self.reset_count,
         }
 
     async def reset_limit(self, current_period_actions_start):
         await asyncio.sleep(self.action_window)
         current_period_actions_end = self.action_count
         current_actions_per_window = current_period_actions_end - current_period_actions_start
-        self.max_measured_actions_per_window = max(self.max_measured_actions_per_window, current_actions_per_window)
-        self.min_measured_actions_per_window = min(self.min_measured_actions_per_window, current_actions_per_window)
-        self.avg_measured_actions_per_window = (self.reset_count * self.avg_measured_actions_per_window + \
-            current_actions_per_window) / (self.reset_count + 1)
+        self.max_measured_actions_per_window = max(
+            self.max_measured_actions_per_window, current_actions_per_window)
+        self.min_measured_actions_per_window = min(
+            self.min_measured_actions_per_window, current_actions_per_window)
+        self.avg_measured_actions_per_window = (
+            self.reset_count * self.avg_measured_actions_per_window +
+            current_actions_per_window) / (
+            self.reset_count + 1)
         self.reset_count += 1
         self.awaiting_reset = False
         self.current_actions_per_window = 0

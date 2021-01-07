@@ -1,9 +1,13 @@
 import socket
-import asyncio
+import logging
 
+import asyncio
 import dns._asyncbackend
 import dns.exception
-from dns._asyncio_backend import _get_running_loop, _maybe_wait_for, _DatagramProtocol, DatagramSocket,StreamSocket,Backend as AsyncioBackend
+from dns._asyncio_backend import _get_running_loop, _maybe_wait_for, \
+    _DatagramProtocol, DatagramSocket, StreamSocket, Backend as AsyncioBackend
+
+logger = logging.getLogger(__name__)
 
 
 class _AsyncioDatagramProtocol(_DatagramProtocol):
@@ -15,27 +19,29 @@ class _AsyncioDatagramProtocol(_DatagramProtocol):
         self.transport = transport
 
     def datagram_received(self, data, addr):
-        if self.recvfrom:
-            self.recvfrom.set_result((data, addr))
-            self.recvfrom = None
+        if self.recvfrom and not self.recvfrom.done():
+            try:
+                self.recvfrom.set_result((data, addr))
+                self.recvfrom = None
+            except asyncio.InvalidStateError:
+                logger.debug("Invalid state error in datagram_received")
 
     def error_received(self, exc):  # pragma: no cover
         if self.recvfrom and not self.recvfrom.done():
             try:
                 self.recvfrom.set_exception(exc)
             except asyncio.InvalidStateError:
-                pass
+                logger.debug("Invalid state error in error_received")
 
     def connection_lost(self, exc):
         if self.recvfrom and not self.recvfrom.done():
             try:
                 self.recvfrom.set_exception(exc)
             except asyncio.InvalidStateError:
-                pass
+                logger.debug("Invalid state error in connection_lost")
 
     def close(self):
         self.transport.close()
-
 
 
 class Backend(AsyncioBackend):

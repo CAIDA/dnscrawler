@@ -17,7 +17,7 @@ async def main():
     # async with DNSResolver(socket_factories=[{'addr':"192.172.226.186",'port':1080}],ipv4_only=True) as resolver:
     async with DNSResolver(ipv4_only=True) as resolver:
         # resolver = DNSResolver()
-        # domain_dict = await resolver.get_domain_dict("google.com")
+        domain_dict = await resolver.get_domain_dict("google.com")
         # Empty non-terminal
         # domain_dict = await resolver.get_domain_dict("caag.state.ca.us")
         # Hazardous domain
@@ -29,7 +29,7 @@ async def main():
         # Retry domain records due to timeout
         # domain_dict = await resolver.get_domain_dict("AMERICUSGA.GOV")
         # Has NS record with '.' for record data
-        domain_dict = await resolver.get_domain_dict("nowdns.net")
+        # domain_dict = await resolver.get_domain_dict("nowdns.net")
         # Root as hostname
         # domain_dict = await resolver.get_domain_dict(".")
         finish_time = float(time.time())

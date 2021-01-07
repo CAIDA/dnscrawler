@@ -1,8 +1,10 @@
-import asyncio
 import logging
 import sys
 
+import asyncio
+
 logger = logging.getLogger(__name__)
+
 
 class AsyncContextManager:
     def __init__(self):
@@ -30,4 +32,5 @@ class AsyncContextManager:
             try:
                 await aw
             except Exception as exc:
-                logger.exception(f"Error handling awaitable {aw}:", sys.exc_info())
+                logger.exception(
+                    f"Error handling awaitable {aw}:", sys.exc_info())

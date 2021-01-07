@@ -3,9 +3,10 @@ import json
 
 import pydgraph
 
+
 class DatabaseConnection:
     def __init__(self, conn):
-        self.client_stub =  pydgraph.DgraphClientStub(conn)
+        self.client_stub = pydgraph.DgraphClientStub(conn)
         self.client = pydgraph.DgraphClient(self.client_stub)
 
     def __enter__(self):
@@ -31,7 +32,7 @@ class DatabaseConnection:
         return response
 
     def delete(self, uid):
-        data = {'uid':uid}
+        data = {'uid': uid}
         response = self.__txn(lambda txn: txn.mutate(del_obj=data))
         return response
 
