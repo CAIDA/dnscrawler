@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 version = DNSResolver.get_timestamp()
 domain_dict_dirname = "domain_dict"
 nodelist_dirname = "nodelist"
+max_concurrent_crawls = 16000 
+
 # Crawl nameserver if it hasn't already been crawled
 # and output result to json file
 async def create_nameserver_file(resolver, nameserver,target_dir, filetype):
@@ -53,6 +55,12 @@ async def create_nameserver_file(resolver, nameserver,target_dir, filetype):
         logger.info(f"File found: {nameserver}")
     logger.info(f"Finished: {nameserver}")
 
+async def start_crawl(coro, crawl_limiter):
+    if crawl_limiter.locked():
+        logger.info("Concurrent crawl limit hit")
+    async with crawl_limiter:
+        await coro
+
 # Crawl all nameservers from a list in a source file
 # and compile their result json into a target file
 async def compile_nameserver_data(source_file,target_dir, target_file, db_target_file):
@@ -73,10 +81,11 @@ async def compile_nameserver_data(source_file,target_dir, target_file, db_target
         nameservers = nsfile.read().splitlines()
     logger.info("Starting initial crawling...")
     crawl_list = []
-
+    concurrent_crawl_limiter = asyncio.Semaphore(max_concurrent_crawls)
     async with DNSResolver() as resolver:
         for nameserver in nameservers:
-            crawl_list.append(create_nameserver_file(resolver, nameserver, target_dir, db_target_extension))
+            crawl_coro = create_nameserver_file(resolver, nameserver, target_dir, db_target_extension)
+            crawl_list.append(start_crawl(crawl_coro, concurrent_crawl_limiter))
         await asyncio.gather(*crawl_list)
     finish_crawl_time = time.time()
     crawl_duration = finish_crawl_time - start_time
