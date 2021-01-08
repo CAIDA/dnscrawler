@@ -4,7 +4,7 @@ init:
 freeze:
 	pip freeze > requirements.txt
 fmt:
-	autopep8 -i -r  -a -a -a --experimental -v dnscrawler/
+	autopep8 -i -r  -a -a -a --experimental -v --max-line-length 99 dnscrawler/ run/
 	autopep8 --list-fixes 
 test:
 	python -m unittest discover

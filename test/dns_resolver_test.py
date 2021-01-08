@@ -21,7 +21,7 @@ async def main():
         # Empty non-terminal
         # host_dependencies = await resolver.get_host_dependencies("caag.state.ca.us")
         # Hazardous domain
-        host_dependencies = await resolver.get_host_dependencies("PREGNANCYCALCULATE.COM.")
+        # host_dependencies = await resolver.get_host_dependencies("PREGNANCYCALCULATE.COM.")
         # Cross zone loops
         # host_dependencies = await resolver.get_host_dependencies("amazon.com")
         # Early ns records
@@ -31,7 +31,7 @@ async def main():
         # Has NS record with '.' for record data
         # host_dependencies = await resolver.get_host_dependencies("nowdns.net")
         # Root as hostname
-        # host_dependencies = await resolver.get_host_dependencies(".")
+        host_dependencies = await resolver.get_host_dependencies(".")
         finish_time = float(time.time())
         duration = finish_time - start_time
         print(json.dumps(host_dependencies))

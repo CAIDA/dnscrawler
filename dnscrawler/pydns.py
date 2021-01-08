@@ -22,10 +22,8 @@ from dnscrawler.contextmanager import AsyncContextManager
 logger = logging.getLogger(__name__)
 
 
-DNSRecord = namedtuple('DNSRecord',
-                       ["name", "ttl", "rrclass", "rrtype", "data"])
-QueryResponse = namedtuple('QueryResponse',
-                           ["data", "rcodes", "domain", "nameserver"])
+DNSRecord = namedtuple('DNSRecord', ["name", "ttl", "rrclass", "rrtype", "data"])
+QueryResponse = namedtuple('QueryResponse', ["data", "rcodes", "domain", "nameserver"])
 
 
 class PyDNS(AsyncContextManager):
@@ -293,7 +291,7 @@ class PyDNS(AsyncContextManager):
             # Index by returned result
             if record.rrtype in record_types or "ANY" in record_types:
                 data.add(record)
-        parsed_response = QueryResponse(data, rcodes domain, nameserver)
+        parsed_response = QueryResponse(data, rcodes, domain, nameserver)
         # Store latest query results in lru cache
         self.query_cache.set(query_args_str, parsed_response)
         # Unblock any concurrent identical results
