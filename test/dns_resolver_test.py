@@ -1,23 +1,24 @@
 import sys
 sys.path.append("../")
-from dnscrawler import DNSResolver, load_schema
-from dnscrawler.logger import log
 import logging
 import json
 import time
 
 import asyncio
 
+from dnscrawler import DNSResolver, load_schema, SOCKSProxy
+from dnscrawler.logger import log
+
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(name)s %(levelname)s:%(message)s')
 
 logger = logging.getLogger(__name__)
 async def main():
     start_time = float(time.time())
-    # resolver = DNSResolver([{'addr':"192.172.226.186",'port':1080}])
-    # async with DNSResolver(socket_factories=[{'addr':"192.172.226.186",'port':1080}],ipv4_only=True) as resolver:
+    # proxy = SOCKSProxy("192.172.226.186", "1080")
+    # async with DNSResolver(socket_factories=[proxy],ipv4_only=True) as resolver:
     async with DNSResolver(ipv4_only=True) as resolver:
         # resolver = DNSResolver()
-        # host_dependencies = await resolver.get_host_dependencies("google.com")
+        host_dependencies = await resolver.get_host_dependencies("google.com")
         # Empty non-terminal
         # host_dependencies = await resolver.get_host_dependencies("caag.state.ca.us")
         # Hazardous domain
@@ -31,7 +32,7 @@ async def main():
         # Has NS record with '.' for record data
         # host_dependencies = await resolver.get_host_dependencies("nowdns.net")
         # Root as hostname
-        host_dependencies = await resolver.get_host_dependencies(".")
+        # host_dependencies = await resolver.get_host_dependencies(".")
         finish_time = float(time.time())
         duration = finish_time - start_time
         print(json.dumps(host_dependencies))

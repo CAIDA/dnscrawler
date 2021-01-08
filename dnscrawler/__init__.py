@@ -1,7 +1,8 @@
-from .dnsresolver import DNSResolver
-from .db import DatabaseConnection
 import os
-from .pydns import PyDNS
+
+from dnscrawler.db import DatabaseConnection
+from dnscrawler.dnsresolver import DNSResolver
+from dnscrawler.pydns import PyDNS, SOCKSProxy
 
 path = os.path.dirname(os.path.realpath(__file__))
 

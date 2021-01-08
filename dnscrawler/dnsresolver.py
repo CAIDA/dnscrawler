@@ -24,8 +24,8 @@ class DNSResolver:
 
     Args:
         socket_factories (optional): Defaults to empty list. List of
-            dicts with keys 'addr' and 'port' for the ip address and
-            port of a SOCKS5 proxy which queries can be routed through.
+            SOCKSProxy tuples containing the ip address and port of a
+            SOCKS5 proxy which queries can be routed through.
         ipv4_only (optional): Defaults to False. If True, resolver will
             only send queries to ipv4 nameservers to avoid ipv6
             timeouts.
