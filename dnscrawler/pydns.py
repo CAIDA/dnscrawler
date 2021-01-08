@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 DNSRecord = namedtuple('DNSRecord',
                        ["name", "ttl", "rrclass", "rrtype", "data"])
+QueryResponse = namedtuple('QueryResponse',
+                           ["data", "rcodes", "domain", "nameserver"])
 
 
 class PyDNS(AsyncContextManager):
@@ -81,7 +83,7 @@ class PyDNS(AsyncContextManager):
             ratelimiter_exit_task = asyncio.create_task(
                 ratelimiter.__aexit__(exc_type, exc, tb))
             self.awaitable_list.append(ratelimiter_exit_task)
-        await super().__aexit__(exc_type, exc, tb, __name__)
+        await super().__aexit__(exc_type, exc, tb)
 
     def create_socket_factory(self, addr, port):
         def socket_factory(
@@ -283,6 +285,7 @@ class PyDNS(AsyncContextManager):
             self.active_queries[query_args_str] = asyncio.Event()
             raw_response = await self.dns_request(domain, nameserver, record_types)
         response = raw_response['records'].splitlines()
+        rcodes = raw_response['rcodes']
         # Return dns response as set
         data = set()
         for row in response:
@@ -290,12 +293,7 @@ class PyDNS(AsyncContextManager):
             # Index by returned result
             if record.rrtype in record_types or "ANY" in record_types:
                 data.add(record)
-        parsed_response = {
-            "data": data,
-            "rcodes": raw_response['rcodes'],
-            "domain": domain,
-            "nameserver": nameserver
-        }
+        parsed_response = QueryResponse(data, rcodes domain, nameserver)
         # Store latest query results in lru cache
         self.query_cache.set(query_args_str, parsed_response)
         # Unblock any concurrent identical results

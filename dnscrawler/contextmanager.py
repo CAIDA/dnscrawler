@@ -7,13 +7,22 @@ logger = logging.getLogger(__name__)
 
 
 class AsyncContextManager:
+    '''AsyncContextManager is a base class for classes which rely on generating
+    background asynchronous tasks and need to ensure execution before the
+    program closes
+
+    Attributes:
+        awaitable_list (list): List of awaitables which will be waited on
+            before the context manager closes
+    '''
+
     def __init__(self):
         self.awaitable_list = []
 
     async def __aenter__(self):
         return self
 
-    async def __aexit__(self, exc_type, exc, tb, name=None):
+    async def __aexit__(self, exc_type, exc, tb):
         # Wait for remaining awaitables to finish executing before closing
         exit_awaitables = []
         coros = []

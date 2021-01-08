@@ -4,8 +4,8 @@ import logging
 from random import choice
 import time
 
-from tldextract import extract
 import asyncio
+from tldextract import extract
 
 import dnscrawler.constants as constants
 from dnscrawler.logger import log
@@ -50,10 +50,12 @@ class DNSResolver:
         self.nameserver_ip = defaultdict(set, self.root_servers)
 
     async def __aenter__(self):
+        '''Initialize PyDNS context manager'''
         await self.pydns.__aenter__()
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
+        '''Close PyDNS context manager'''
         await self.pydns.__aexit__(exc_type, exc, tb)
 
     @staticmethod
@@ -137,7 +139,8 @@ class DNSResolver:
         # Flag to check if should preserve hierachical node data
         can_generate_nodes = node_list and current_node
         if not can_generate_nodes and (node_list or current_node):
-            raise ValueError("Both node_list and current_node must be set to"\
+            raise ValueError(
+                "Both node_list and current_node must be set to"
                 "generate hierachical node data:", node_list, current_node)
         elif node_trust_type not in constants.VALID_NODE_TRUST_TYPES:
             raise ValueError("Invalid node_trust_type:", node_trust_type)
@@ -157,7 +160,7 @@ class DNSResolver:
         is_public_suffix = prefix == "ps_"
         for record in records:
             # Add all nameservers for names that current_name ends with to
-            # current_name_ns. (ex. If current_name is ns1.example.com, and 
+            # current_name_ns. (ex. If current_name is ns1.example.com, and
             # nameserver is for com or example.com)
             record_name = format_hostname(record.name)
             if record.rrtype == 'NS' and current_name.endswith(record_name):
@@ -192,47 +195,47 @@ class DNSResolver:
                 if record_name == current_name:
                     if can_generate_nodes:
                         node_type = Node.infer_node_type(record.data)
-                        record_node = node_list.create_node(record.data, 
-                            node_type)
+                        record_node = node_list.create_node(record.data,
+                                                            node_type)
                         record_node.is_public_suffix = is_public_suffix
                         current_node.trusts(record_node, node_trust_type)
-                    # If is_ns is true, current_name came from resolving a 
-                    # previous NS record, so the hostname from the A/AAAA 
+                    # If is_ns is true, current_name came from resolving a
+                    # previous NS record, so the hostname from the A/AAAA
                     # record can be treated as a nameserver
                     if is_ns:
                         current_name_ns.add(current_name)
-       
+
         # Get registrable domain from current hostname
         extracted_current_name = extract(current_name)
         current_name_sld = f"{extracted_current_name.domain}."\
             f"{extracted_current_name.suffix}."
-        current_name_parts = [part for part in current_name_sld.split('.') 
-            if len(part) > 0]
+        current_name_parts = [part for part in current_name_sld.split('.')
+                              if len(part) > 0]
         if can_generate_dependencies:
             # Add dependency data for current_name
             if len(extracted_current_name.domain) > 0:
-                # Ex. If current_name is 'example.com' extracted_current_name 
+                # Ex. If current_name is 'example.com' extracted_current_name
                 # will be (domain='example', suffix='com')
                 dependencies[f"{prefix}sld"].add(current_name_sld)
                 current_name_tld = f"{extracted_current_name.suffix}."
                 dependencies[f"{prefix}tld"].add(current_name_tld)
             elif len(current_name_parts) > 1:
                 # Ex. If current_name is 'co.uk', extracted_current_name will
-                # be (domain='', suffix='co.uk'), however current_name_parts 
+                # be (domain='', suffix='co.uk'), however current_name_parts
                 # will be ['co','uk']
                 dependencies[f"{prefix}sld"].add(current_name_sld)
                 current_name_tld = f"{'.'.join(current_name_parts[1:])}."
                 dependencies[f"{prefix}tld"].add(current_name_tld)
-            elif len(current_name_parts) > 1: 
-                # Ex. If current_name is 'com', extracted_current_name will be 
+            elif len(current_name_parts) > 1:
+                # Ex. If current_name is 'com', extracted_current_name will be
                 # (domain='', suffix='com'), and current_name_parts will be
                 # ['com']
                 current_name_tld = f"{current_name_parts[0]}."
                 dependencies[f"{prefix}tld"].add(current_name_tld)
         # Compile sets of all ips for authoritative ns into auth_ns
-        # Seperate ns_name and current_name by domain and suffix in order to 
-        # avoid reresolution if both the ns and the current_name belong to the 
-        # same domain (ie. don't reresolve ns1.example.com if current name is 
+        # Seperate ns_name and current_name by domain and suffix in order to
+        # avoid reresolution if both the ns and the current_name belong to the
+        # same domain (ie. don't reresolve ns1.example.com if current name is
         # example.com)
         for ns_name in current_name_ns:
             # If ns name is '.' skip further parsing for current iteration and
@@ -244,8 +247,8 @@ class DNSResolver:
             extracted_ns_name = extract(ns_name)
             ns_name_sld = f"{extracted_ns_name.domain}."\
                 f"{extracted_ns_name.suffix}."
-            ns_name_parts = [part for part in ns_name_sld.split('.') 
-                if len(part) > 0]
+            ns_name_parts = [part for part in ns_name_sld.split('.')
+                             if len(part) > 0]
             # Add TLD and SLD data to dependencies
             if can_generate_dependencies:
                 # Add data for each ns
@@ -256,29 +259,29 @@ class DNSResolver:
                     ns_name_tld = f"{extracted_ns_name.suffix}."
                     dependencies[f"{prefix}tld"].add(ns_name_tld)
                 elif len(ns_name_parts) > 1:
-                    # Ex. If ns_name is 'co.uk', extracted_ns_name will be 
+                    # Ex. If ns_name is 'co.uk', extracted_ns_name will be
                     # (domain='', suffix='co.uk'), however ns_name_parts
                     # will be ['co','uk']
                     dependencies[f"{prefix}sld"].add(ns_name_sld)
                     ns_name_tld = f"{'.'.join(ns_name_parts[1:])}."
                     dependencies[f"{prefix}tld"].add(ns_name_tld)
                 else:
-                    # Ex. If ns_name is 'com', extracted_ns_name will be 
+                    # Ex. If ns_name is 'com', extracted_ns_name will be
                     # (domain='', suffix='com'), and ns_name_parts
                     # will be ['com']
                     ns_name_tld = f"{ns_name_parts[0]}."
                     dependencies[f"{prefix}tld"].add(ns_name_tld)
-            # If A/AAAA records for the current nameserver were found in the 
+            # If A/AAAA records for the current nameserver were found in the
             # RRset and added to nameserver_ip, then add those ips to auth_ns
             # Else if the current ns_name is currently being resolved, add
             # Else if the current ns_name is not already being resolved and
-            # the ns_name and the current_name are not part of the same 
+            # the ns_name and the current_name are not part of the same
             # domain and try resolving the nameserver for its ips
             # current_name to non hazardous list
             if ns_name in nameserver_ip:
                 auth_ns[ns_name] = nameserver_ip[ns_name].copy()
             elif can_generate_dependencies and \
-                ns_name_sld in self.active_resolutions:
+                    ns_name_sld in self.active_resolutions:
                 dependencies['nonhazardous_domains'].add(current_name)
             elif can_generate_dependencies and (
                 extracted_ns_name.domain != extracted_current_name.domain or
@@ -300,11 +303,11 @@ class DNSResolver:
                     ns_node = None
                 # Gather dependencies and ips for for ns_name
                 ns_name_auth_ns = await self.map_name(
-                    original_name=ns_name, 
+                    original_name=ns_name,
                     dependencies=dependencies,
-                    prefix=prefix, 
-                    is_ns=True, 
-                    current_node=ns_node, 
+                    prefix=prefix,
+                    is_ns=True,
+                    current_node=ns_node,
                     node_list=node_list
                 )
                 reresolved_ns = ns_name_auth_ns.get(ns_name, None)
@@ -349,7 +352,7 @@ class DNSResolver:
                 to store all hierarchial dependency data.
 
         Returns:
-            A dict containing a list of nameservers and corresponding ip 
+            A dict containing a list of nameservers and corresponding ip
             addresses that are authoritative for a given hostname
         '''
 
@@ -370,7 +373,7 @@ class DNSResolver:
                 hazardous_domains = QuerySummaryList()
                 dependencies['hazardous_domains'] = hazardous_domains
             else:
-                misconfigured_domains =  dependencies['misconfigured_domains']
+                misconfigured_domains = dependencies['misconfigured_domains']
                 azardous_domains = dependencies['hazardous_domains']
         # If name is not set, set name to original_name
         if not name:
@@ -401,22 +404,22 @@ class DNSResolver:
             superdomain_node = None
             if current_node:
                 node_type = Node.infer_node_type(superdomain)
-                superdomain_node = node_list.create_node(superdomain, 
-                    node_type)
+                superdomain_node = node_list.create_node(superdomain,
+                                                         node_type)
                 current_node.trusts(superdomain_node, "provisioning")
             # These are the authoritative nameservers from the super domain
             # (ie. com => a.gtld-servers.net => google.com)
             auth_ns = await self.map_name(
                 name=superdomain,
-                dependencies=dependencies, 
+                dependencies=dependencies,
                 prefix=prefix,
                 original_name=original_name,
                 current_node=superdomain_node,
                 node_list=node_list
             )
 
-        # Authoritative nameserver querying split into two parts: First query 
-        # the authoritative nameservers for the superdomain to get the the 
+        # Authoritative nameserver querying split into two parts: First query
+        # the authoritative nameservers for the superdomain to get the the
         # authoritative nameservers for the domain, then querying process
         # repeats with the authoritative nameservers for the domain to get the
         # final set of authoritative nameservers
@@ -437,10 +440,10 @@ class DNSResolver:
             ip_list = []
             # Query name for each ip for each ns in auth_ns
             for nameserver, ip_set in auth_ns.items():
-                nameserver_node = node_list.create_node(nameserver, 
-                    "nameserver")
+                nameserver_node = node_list.create_node(nameserver,
+                                                        "nameserver")
                 for ip in ip_set:
-                    node_type =  Node.infer_node_type(ip)
+                    node_type = Node.infer_node_type(ip)
                     nameserver_ip_node = node_list.create_node(ip, node_type)
                     nameserver_node.trusts(nameserver_ip_node, node_trust_type)
                     ip_list.append((ip, nameserver, nameserver_node))
@@ -458,23 +461,23 @@ class DNSResolver:
                 ip, nameserver, nameserver_node = record
                 query_name = name
                 query_response = query_responses[count]
-                records = query_response['data']
+                records = query_response.data
                 # If records are not returned, perform additional checks to see
-                # if query timed out or returned NXDOMAIN, else set NXDOMAIN 
+                # if query timed out or returned NXDOMAIN, else set NXDOMAIN
                 # flag to false and valid reponse flag to true
                 if len(records) == 0:
-                    ns_timed_out = "timeout" in query_response['rcodes']
+                    ns_timed_out = "timeout" in query_response.rcodes
                     if not ns_timed_out:
                         has_valid_response = True
                         # Flag to check if current response is NXDOMAIN
-                        nxdomain = query_response['rcodes']['NS'] == 3
+                        nxdomain = query_response.rcodes['NS'] == 3
                         if not nxdomain:
                             all_nxdomain = False
                             # If RCODE is 0 (NOERROR) then recycle current ip
                             # address for next set of queries
-                            if query_response['rcodes']['NS'] == 0:
-                                current_node.trusts(
-                                    nameserver_node, node_trust_type)
+                            if query_response.rcodes['NS'] == 0:
+                                current_node.trusts(nameserver_node,
+                                                    node_trust_type)
                                 new_auth_ns[nameserver].add(ip)
                                 continue
                             else:
@@ -482,24 +485,24 @@ class DNSResolver:
                                 # nonterminal
                                 empty_nonterminal = False
                             # Since the nameserver hasn't timed out or returned
-                            # NXDOMAIN, if the current name isn't the full 
+                            # NXDOMAIN, if the current name isn't the full
                             # hostname, repeat the query with the full hostname
                             if name != original_name:
                                 query_name = original_name
                                 query_response = await self.pydns.query(
-                                    domain=query_name, 
+                                    domain=query_name,
                                     nameserver=ip
                                 )
                                 query_response_list.append(query_response)
-                                records = query_response['data']
+                                records = query_response.data
                                 if len(records) == 0:
                                     ns_timed_out = "timeout" in \
-                                        query_response['rcodes']
+                                        query_response.rcodes
                                     if not ns_timed_out and \
-                                        query_response['rcodes']['NS'] == 0:
+                                            query_response.rcodes['NS'] == 0:
                                         new_auth_ns[nameserver].add(ip)
-                                        current_node.trusts(nameserver_node, 
-                                            node_trust_type)
+                                        current_node.trusts(nameserver_node,
+                                                            node_trust_type)
                                         continue
                         else:
                             # If rcode is nxdomain then can't be empty
@@ -526,22 +529,22 @@ class DNSResolver:
                 if '.' in parsed_records:
                     response_summary = QuerySummary(
                         name=name,
-                        rcodes=query_response['rcodes'],
-                        nameserver=query_response['nameserver']
+                        rcodes=query_response.rcodes,
+                        nameserver=query_response.nameserver
                     )
                     misconfigured_domains['invalid_ns_record'] \
                         .add(response_summary)
                 # Add current set parsed records to dictionary of parsed
                 # records
                 new_auth_ns.update(parsed_records)
-            # If auth_ns is still empty => query returned no nameservers so 
-            # domain is hazardous, unless a cyclic dependency has occurred, in 
+            # If auth_ns is still empty => query returned no nameservers so
+            # domain is hazardous, unless a cyclic dependency has occurred, in
             # which case nameserver will be added to nonhazardous domains
             # Else if empty_nonterminal flag is still set, mark current node as
             # empty nonterminal
             if has_valid_response and all_nxdomain and len(new_auth_ns) == 0 \
-                and name not in dependencies['nonhazardous_domains']:
-                # If error on first itereation and name is not ip add name to 
+                    and name not in dependencies['nonhazardous_domains']:
+                # If error on first itereation and name is not ip add name to
                 # dependenciess hazardous set
                 # Else add name to misconfiguration set for missing ns records
                 if i == 0:
@@ -561,11 +564,11 @@ class DNSResolver:
                 for query_response in query_response_list:
                     response_summary = QuerySummary(
                         name=name,
-                        rcodes=query_response['rcodes'],
-                        nameserver=query_response['nameserver']
+                        rcodes=query_response.rcodes,
+                        nameserver=query_response.nameserver
                     )
                     summary_target.add(response_summary)
-                # Add sld/tld data for name to dependencies in case the lack 
+                # Add sld/tld data for name to dependencies in case the lack
                 # of records causes _parsed_records to have never run for the
                 # current hostname, so that data was never collected
                 if len(extracted_name.domain) > 0:
@@ -618,7 +621,7 @@ class DNSResolver:
                 a string of RDF N-Quad mutations representing the nodelist
             version (optional): Defaults to None. If None, the versioning key
                 will be set to the RFC 1339 timestamp at the beginning of the
-                crawl. Versioning key will be used to label facets on uid 
+                crawl. Versioning key will be used to label facets on uid
                 predicates in the nodelist.
 
         Returns:
@@ -643,8 +646,8 @@ class DNSResolver:
         dependencies = defaultdict(set)
         auth_ns = await self.map_name(
             name, dependencies,
-            is_ns=is_ns, 
-            current_node=node, 
+            is_ns=is_ns,
+            current_node=node,
             node_list=node_list
         )
         # Initialize the dictionary to store the formatted dependency data
@@ -655,8 +658,17 @@ class DNSResolver:
             host_dependencies['misconfigured_domains'][k] = v.queries
         host_dependencies['hazardous_domains'] = \
             dependencies['hazardous_domains'].queries
-        fixed_host_dependencies_fields = ['ns', 'ipv4', 'ipv6', 'tld', 'sld', 
-            'ps_ns', 'ps_ipv4', 'ps_ipv6', 'ps_tld', 'ps_sld']
+        fixed_host_dependencies_fields = [
+            'ns',
+            'ipv4',
+            'ipv6',
+            'tld',
+            'sld',
+            'ps_ns',
+            'ps_ipv4',
+            'ps_ipv6',
+            'ps_tld',
+            'ps_sld']
         for field in fixed_host_dependencies_fields:
             # Add raw dependency data to host_dependencies, casting to list
             # to make the data JSON serializable.

@@ -28,7 +28,7 @@ class RateLimiter(AsyncContextManager):
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
-        await super().__aexit__(exc_type, exc, tb, __name__)
+        await super().__aexit__(exc_type, exc, tb)
 
     async def run(self, action):
         if action not in self.awaitable_list:
