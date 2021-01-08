@@ -20,22 +20,22 @@ async def main():
         # resolver = DNSResolver()
         print("running")
         start_time = time.time()    
-        data = await resolver.get_domain_dict("google.com", db_rdf=True, version=resolver.get_timestamp())
+        data = await resolver.get_host_dependencies("google.com", db_rdf=True, version=resolver.get_timestamp())
         # Empty non-terminal
-        # data = await resolver.get_domain_dict("caag.state.ca.us", db_json=True)
+        # data = await resolver.get_host_dependenceis("caag.state.ca.us", db_json=True)
         # Hazardous domain
-        # data = await resolver.get_domain_dict("PREGNANCYCALCULATE.COM.", db_json=True)
+        # data = await resolver.get_host_dependenceis("PREGNANCYCALCULATE.COM.", db_json=True)
         # Cross zone loops
-        # data = await resolver.get_domain_dict("amazon.com", db_json=True)
+        # data = await resolver.get_host_dependenceis("amazon.com", db_json=True)
         # Early ns records
-        # data = await resolver.get_domain_dict("aridns.net.au", db_json=True)
+        # data = await resolver.get_host_dependenceis("aridns.net.au", db_json=True)
         # Retry domain records due to long duration
-        # data = await resolver.get_domain_dict("AMERICUSGA.GOV", db_json=True)
+        # data = await resolver.get_host_dependenceis("AMERICUSGA.GOV", db_json=True)
         # Large timeout cause no output
-        # data = await resolver.get_domain_dict("AMARILLO.GOV", db_json=True)
+        # data = await resolver.get_host_dependenceis("AMARILLO.GOV", db_json=True)
         finish_time = time.time()
         duration = finish_time - start_time
-        domain_dict = data['domain_dict']
+        domain_dict = data['dependencies']
         nodelist_rdf = data['rdf']
         print(nodelist_rdf)
         db.create_rdf(nodelist_rdf)

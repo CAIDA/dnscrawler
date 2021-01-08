@@ -17,26 +17,26 @@ async def main():
     # async with DNSResolver(socket_factories=[{'addr':"192.172.226.186",'port':1080}],ipv4_only=True) as resolver:
     async with DNSResolver(ipv4_only=True) as resolver:
         # resolver = DNSResolver()
-        domain_dict = await resolver.get_domain_dict("google.com")
+        # host_dependencies = await resolver.get_host_dependencies("google.com")
         # Empty non-terminal
-        # domain_dict = await resolver.get_domain_dict("caag.state.ca.us")
+        # host_dependencies = await resolver.get_host_dependencies("caag.state.ca.us")
         # Hazardous domain
-        # domain_dict = await resolver.get_domain_dict("PREGNANCYCALCULATE.COM.")
+        host_dependencies = await resolver.get_host_dependencies("PREGNANCYCALCULATE.COM.")
         # Cross zone loops
-        # domain_dict = await resolver.get_domain_dict("amazon.com")
+        # host_dependencies = await resolver.get_host_dependencies("amazon.com")
         # Early ns records
-        # domain_dict = await resolver.get_domain_dict("aridns.net.au")
+        # host_dependencies = await resolver.get_host_dependencies("aridns.net.au")
         # Retry domain records due to timeout
-        # domain_dict = await resolver.get_domain_dict("AMERICUSGA.GOV")
+        # host_dependencies = await resolver.get_host_dependencies("AMERICUSGA.GOV")
         # Has NS record with '.' for record data
-        # domain_dict = await resolver.get_domain_dict("nowdns.net")
+        # host_dependencies = await resolver.get_host_dependencies("nowdns.net")
         # Root as hostname
-        # domain_dict = await resolver.get_domain_dict(".")
+        # host_dependencies = await resolver.get_host_dependencies(".")
         finish_time = float(time.time())
         duration = finish_time - start_time
-        print(json.dumps(domain_dict))
+        print(json.dumps(host_dependencies))
         print(f"Duration:{duration}")
-    logger.info(json.dumps(resolver.pydns.stats(), indent=4))
+    # logger.info(json.dumps(resolver.pydns.stats(), indent=4))
 
 if __name__ == "__main__":
     asyncio.run(main())   

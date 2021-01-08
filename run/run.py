@@ -21,7 +21,7 @@ logging.basicConfig(handlers=[
 logger = logging.getLogger(__name__)
 
 version = DNSResolver.get_timestamp()
-domain_dict_dirname = "domain_dict"
+host_dependencies_dirname = "host_dependencies"
 nodelist_dirname = "nodelist"
 max_concurrent_crawls = 16000 
 
@@ -30,26 +30,26 @@ max_concurrent_crawls = 16000
 async def create_nameserver_file(resolver, nameserver,target_dir, filetype):
     logger.info(f"Starting: {nameserver}")
     filename = nameserver
-    # Create paths and directories for precompiled domain_dicts and nodelist json
-    domain_dict_dirpath = f"{target_dir}/{domain_dict_dirname}"
+    # Create paths and directories for precompiled host_dependenciess and nodelist json
+    host_dependencies_dirpath = f"{target_dir}/{host_dependencies_dirname}"
     nodelist_dirpath = f"{target_dir}/{nodelist_dirname}"
-    required_paths = [target_dir, domain_dict_dirpath, nodelist_dirpath]
+    required_paths = [target_dir, host_dependencies_dirpath, nodelist_dirpath]
     for dirpath in required_paths:
         if not os.path.exists(dirpath):
             os.makedirs(dirpath)
-    # Create paths for domain_dict and nodelist json files
-    domain_dict_filepath = f"{target_dir}/{domain_dict_dirname}/{filename}.json"
+    # Create paths for host_dependencies and nodelist json files
+    host_dependencies_filepath = f"{target_dir}/{host_dependencies_dirname}/{filename}.json"
     nodelist_filepath = f"{target_dir}/{nodelist_dirname}/{filename}.{filetype}"
-    if not os.path.exists(domain_dict_filepath):
+    if not os.path.exists(host_dependencies_filepath):
         crawl_kwargs = {"name":nameserver, "is_ns":True, f"db_{filetype}":True, "version":version}
-        data = await resolver.get_domain_dict(**crawl_kwargs)
-        domain_dict = data['domain_dict']
+        data = await resolver.get_host_dependencies(**crawl_kwargs)
+        host_dependencies = data['dependencies']
         if filetype == "json":
             nodelist_output = json.dumps(data[filetype])
         elif filetype == "rdf":
             nodelist_output = data[filetype]
-        with open(domain_dict_filepath,"w") as domain_dict_file, open(nodelist_filepath,"w") as nodelist_output_file:
-            domain_dict_file.write(json.dumps(domain_dict))
+        with open(host_dependencies_filepath,"w") as host_dependencies_file, open(nodelist_filepath,"w") as nodelist_output_file:
+            host_dependencies_file.write(json.dumps(host_dependencies))
             nodelist_output_file.write(nodelist_output)
     else:
         logger.info(f"File found: {nameserver}")
@@ -91,9 +91,9 @@ async def compile_nameserver_data(source_file,target_dir, target_file, db_target
     crawl_duration = finish_crawl_time - start_time
     # Duplicate list of hostnames, remove each hostname as the its file is compiled
     missing_namservers = nameservers.copy()
-    logger.info("Compiling domain_dict into jsonl file")
+    logger.info("Compiling host_dependencies into jsonl file")
     with open(f"{target_dir}/{target_file}","wb") as outfile:
-        for file_count, filepath in enumerate(glob(f"{target_dir}/{domain_dict_dirname}/*.json")):
+        for file_count, filepath in enumerate(glob(f"{target_dir}/{host_dependencies_dirname}/*.json")):
             # Verify all hostnames have been crawled
             filename = os.path.basename(filepath)
             file_nameserver = os.path.splitext(filename)[0]
