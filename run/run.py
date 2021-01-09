@@ -103,7 +103,7 @@ async def compile_nameserver_data(source_file, target_dir, target_file, db_targe
     finish_crawl_time = time.time()
     crawl_duration = finish_crawl_time - start_time
     # Duplicate list of hostnames, remove each hostname as the its file is compiled
-    missing_namservers = nameservers.copy()
+    missing_nameservers = nameservers.copy()
     logger.info("Compiling host_dependencies into jsonl file")
     with open(f"{target_dir}/{target_file}", "wb") as outfile:
         for file_count, filepath in enumerate(
@@ -111,7 +111,7 @@ async def compile_nameserver_data(source_file, target_dir, target_file, db_targe
             # Verify all hostnames have been crawled
             filename = os.path.basename(filepath)
             file_nameserver = os.path.splitext(filename)[0]
-            missing_namservers.remove(file_nameserver)
+            missing_nameservers.remove(file_nameserver)
             with open(filepath, "rb") as infile:
                 logger.info(f"Compiling file: {file_count + 1}. {filepath}")
                 outfile.write(infile.read())
@@ -145,9 +145,9 @@ async def compile_nameserver_data(source_file, target_dir, target_file, db_targe
         # Append newline to end of file
         outfile.write("\n".encode('utf-8'))
     # Print missing hostnames, if any
-    if len(missing_namservers) > 0:
+    if len(missing_nameservers) > 0:
         logger.warning("MISSING HOSTNAME LIST")
-        logger.warning(missing_namservers)
+        logger.warning(missing_nameservers)
     else:
         logger.info("NO MISSING HOSTNAMES")
     logger.info("FINISHED")
