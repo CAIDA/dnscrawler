@@ -31,11 +31,13 @@ class DNSResolver:
             timeouts.
 
     Attributes:
-        pydns (PyDns): DNS query handler for the resolver.
+        pydns (PyDNS): DNS query handler for the resolver.
         ipv4_only (bool): If True, resolver will only send queries to
             ipv4 nameservers to avoid ipv6 timeouts.
         active_resolutions (set): Set containing the hostnames currently
             being resolved.
+        past_resolutions (dict): Maps previously resolved hostnames to 
+            their authoritative nameservers and corresponding ips.
         root_servers (dict): Maps each root server to a set containing
             its ip addresses.
         nameservers (defaultdict(set)): Contains the collection of
@@ -180,8 +182,8 @@ class DNSResolver:
                 node_trust_type is provided.
         '''
 
-        # Flag to check if general dependency data should be preserved (ie.
-        # not parsing tld data)
+        # Flag to check if general dependency data should be preserved 
+        # (ie. not parsing tld data)
         can_generate_dependencies = dependencies is not None
         # Flag to check if should preserve hierachical node data
         can_generate_nodes = node_list and current_node
