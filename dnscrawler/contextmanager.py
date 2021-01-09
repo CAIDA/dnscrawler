@@ -17,7 +17,7 @@ class AsyncContextManager:
     '''
 
     def __init__(self):
-        self.awaitable_list = []
+        self._awaitable_list = []
 
     async def __aenter__(self):
         return self
@@ -26,7 +26,7 @@ class AsyncContextManager:
         # Wait for remaining awaitables to finish executing before closing
         exit_awaitables = []
         coros = []
-        for aw in self.awaitable_list:
+        for aw in self._awaitable_list:
             if asyncio.iscoroutine(aw):
                 # Coroutines cr_frame gets set to None after execution
                 if aw.cr_frame:
@@ -43,3 +43,4 @@ class AsyncContextManager:
             except Exception as exc:
                 aw_str = str(aw)
                 logger.exception(f"Error handling awaitable: {aw_str}")
+                

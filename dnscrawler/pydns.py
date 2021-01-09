@@ -67,9 +67,6 @@ class PyDNS(AsyncContextManager):
             timed out repeatedly. Any further requests to these 
             nameservers will be assumed to automatically timeout, and
             will not be sent.
-        active_requests (defaultdict(list)): Stores each started request
-            in a list indexed by nameserver. Used to cancel all active
-            requests for nameservers which timeout repeatedly.
         active_queries (dict): Tracks all active queries being made. 
             Used to avoid sending multiple indentical queries in 
             succession by waiting for the first one complete and using 
@@ -103,7 +100,6 @@ class PyDNS(AsyncContextManager):
         self.request_measurement_count = 0
         self.awaiting_rps_calc = False
         self.timeout_nameservers = set()
-        self.active_requests = defaultdict(list)
         self.active_queries = {}
         self.nameserver_ratelimiters = {}
         query_limiter_attributes = [
@@ -264,17 +260,11 @@ class PyDNS(AsyncContextManager):
                     where=nameserver, 
                     backend=Backend()
                 )
-                query_coro = asyncio.wait_for(
-                    query_request, timeout=request_timeout)
-                query_task = asyncio.create_task(query_coro)
-                self.awaitable_list.append(query_task)
-                # Add request future to active_requests
-                self.active_requests[nameserver].append(query_task)
+                query_coro = asyncio.wait_for(query_request,
+                    timeout=request_timeout)
                 self.requests_sent += 1
-                response_data = await query_task
+                response_data = await query_coro
                 request_success = True
-                # Remove request future from active_requests
-                self.active_requests[nameserver].remove(query_task)
                 rcode = response_data.rcode()
                 records = response_data.answer + response_data.additional + response_data.authority
                 response = {"rcode": rcode, "records": records}
@@ -297,10 +287,6 @@ class PyDNS(AsyncContextManager):
                 if block_nameserver:
                     self.timeout_nameservers.add(nameserver)
                     # Cancel all active futures for the blocked nameserver
-                    for future in self.active_requests[nameserver]:
-                        if not future.done():
-                            future.cancel()
-                        self.active_requests[nameserver].remove(future)
                 elif not request_success:
                     ns_ratelimiter = self.nameserver_ratelimiters[nameserver]
                     response = await ns_ratelimiter.run(self.send_request(request, nameserver, retries + 1))
