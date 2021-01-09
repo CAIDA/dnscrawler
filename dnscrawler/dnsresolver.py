@@ -380,7 +380,7 @@ class DNSResolver:
                 dependencies['hazardous_domains'] = hazardous_domains
             else:
                 misconfigured_domains = dependencies['misconfigured_domains']
-                azardous_domains = dependencies['hazardous_domains']
+                hazardous_domains = dependencies['hazardous_domains']
         # If name is not set, set name to original_name
         if not name:
             original_name = format_hostname(original_name)
