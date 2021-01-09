@@ -1,17 +1,20 @@
-import logging
-import asyncio
-import time
-import gzip
+from concurrent.futures import TimeoutError
 from glob import glob
+import gzip
+import json
+import logging
+import multiprocessing as mp
+import os
+import sys
+import time
+
+import asyncio
+from pebble import ProcessPool
+
+sys.path.append("../")
+
 from dnscrawler.logger import log
 from dnscrawler import DNSResolver, load_schema, DatabaseConnection
-import multiprocessing as mp
-from concurrent.futures import TimeoutError
-from pebble import ProcessPool
-import json
-import sys
-import os
-sys.path.append("../")
 
 logging.basicConfig(handlers=[
     logging.FileHandler("dnscrawler.log"),
