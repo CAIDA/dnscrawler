@@ -41,5 +41,5 @@ class AsyncContextManager:
             try:
                 await aw
             except Exception as exc:
-                logger.exception(
-                    f"Error handling awaitable {aw}:", sys.exc_info())
+                aw_str = str(aw)
+                logger.exception(f"Error handling awaitable: {aw_str}")
