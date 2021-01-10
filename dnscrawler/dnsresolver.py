@@ -53,7 +53,7 @@ class DNSResolver:
         self.pydns = PyDNS(socket_factories, ipv4_only)
         self.ipv4_only = ipv4_only
         self.active_resolutions = set()
-        self.past_resolutions = {}
+        self.past_resolutions = StringReferenceCache(capacity=None)
         self.root_servers = constants.ROOT_SERVERS
         self.nameserver_ip = NSSet(self.root_servers)
 
@@ -398,9 +398,10 @@ class DNSResolver:
         extracted_name = extract(name)
         # Return cached past resolutions to prevent cyclic dependencies
         # and reduce queries
-        if name in self.past_resolutions:
+        cached_resolution = self.past_resolutions.get(name)
+        if cached_resolution:
             logger.debug(f"Past resolution cache found for {name}")
-            return self.past_resolutions[name].copy()
+            return cached_resolution.copy()
 
         # If name is only tld or '.'
         isTLD = len(name_parts) <= 1
@@ -595,7 +596,7 @@ class DNSResolver:
         self.active_resolutions.discard(name)
         # Add to past_resolutions so that reresolutions hit the cache
         # rather than triggering another cyclic dependency
-        self.past_resolutions[name] = new_auth_ns
+        self.past_resolutions.set(name, new_auth_ns)
         return new_auth_ns
 
     async def get_host_dependencies(

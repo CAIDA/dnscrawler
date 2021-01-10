@@ -19,21 +19,21 @@ async def main():
     # async with DNSResolver(socket_factories=[proxy],ipv4_only=True) as resolver:
     async with DNSResolver(ipv4_only=True) as resolver:
         # resolver = DNSResolver()
-        # host_dependencies = await resolver.get_host_dependencies("google.com")
+        host_dependencies = await resolver.get_host_dependencies("google.com")
         # Empty non-terminal
-        # host_dependencies = await resolver.get_host_dependencies("caag.state.ca.us")
+        host_dependencies = await resolver.get_host_dependencies("caag.state.ca.us")
         # Hazardous domain
-        # host_dependencies = await resolver.get_host_dependencies("PREGNANCYCALCULATE.COM.")
+        host_dependencies = await resolver.get_host_dependencies("PREGNANCYCALCULATE.COM.")
         # Cross zone loops
         host_dependencies = await resolver.get_host_dependencies("amazon.com")
         # Early ns records
-        # host_dependencies = await resolver.get_host_dependencies("aridns.net.au")
+        host_dependencies = await resolver.get_host_dependencies("aridns.net.au")
         # Retry domain records due to timeout
-        # host_dependencies = await resolver.get_host_dependencies("AMERICUSGA.GOV")
+        host_dependencies = await resolver.get_host_dependencies("AMERICUSGA.GOV")
         # Has NS record with '.' for record data
-        # host_dependencies = await resolver.get_host_dependencies("nowdns.net")
+        host_dependencies = await resolver.get_host_dependencies("nowdns.net")
         # Root as hostname
-        # host_dependencies = await resolver.get_host_dependencies(".")
+        host_dependencies = await resolver.get_host_dependencies(".")
         finish_time = float(time.time())
         duration = finish_time - start_time
         print(json.dumps(host_dependencies))
