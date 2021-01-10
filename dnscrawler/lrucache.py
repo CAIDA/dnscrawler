@@ -1,5 +1,6 @@
 from collections import OrderedDict
 
+from objsize import get_deep_size
 
 class LRUCache:
     def __init__(self, capacity=128):
@@ -40,4 +41,5 @@ class LRUCache:
     def stats(self):
         current_cache_info = self.cache_info.copy()
         current_cache_info['size'] = self.size()
+        current_cache_info['memory'] = get_deep_size(self.cache)
         return current_cache_info

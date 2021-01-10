@@ -1,4 +1,5 @@
 from collections import defaultdict, namedtuple
+from functools import total_ordering
 from ipaddress import ip_address
 import logging
 import math
@@ -8,6 +9,7 @@ import socket
 import sys
 import time
 from typing import Callable
+from weakref import WeakValueDictionary
 
 import socks
 import asyncio
@@ -16,16 +18,152 @@ from dns import asyncquery as dnsquery, message as dnsmessage, rdatatype
 from dnscrawler.asynciobackend import Backend
 import dnscrawler.constants as constants
 from dnscrawler.contextmanager import AsyncContextManager
-from dnscrawler.lrucache import LRUCache
+from dnscrawler.stringreferencecache import StringReferenceCache
 from dnscrawler.ratelimiter import RateLimiter
 
 
 logger = logging.getLogger(__name__)
 
-
-DNSRecord = namedtuple('DNSRecord', ["name", "ttl", "rrclass", "rrtype", "data"])
-QueryResponse = namedtuple('QueryResponse', ["data", "rcodes", "domain", "nameserver"])
 SOCKSProxy = namedtuple('SOCKSProxy', ['addr', 'port'])
+# Store a weak representation of each record to maintain one canonical 
+# version in all QueryResponses
+record_map = WeakValueDictionary()
+
+@total_ordering
+class DNSRecord:
+    '''DNSRecord acts as a ordered hashable representation of a resource
+    record
+
+    Args:
+        name: The host label of the record.
+        ttl: How long a response should be cached.
+        rrclass: Class of DNS records (ex. IN, CH, HS)
+        rrtype: Type of DNS record
+        data: Data value corresponding to the host label
+
+    Attributes:
+        name (str): The host label of the record.
+        ttl (float): How long a response should be cached.
+        rrclass (str): Class of DNS records (ex. IN, CH, HS)
+        rrtype (str): Type of DNS record
+        data (str): Data value corresponding to the host label
+    '''
+
+    __slots__ = ["name", "ttl", "rrclass", "rrtype", "data", '__weakref__']
+
+    def __init__(self, name:str, ttl:float, rrclass:str, rrtype:str, data:str):
+        self.name = name.lower()
+        self.ttl = ttl
+        self.rrclass = rrclass.upper()
+        self.rrtype = rrtype.upper()
+        self.data = data.lower()
+
+    def __repr__(self) -> str:
+        '''Returns string representation of DNSRecord'''
+        return f"{self.name},{self.ttl},{self.rrclass},{self.rrtype},{self.data}"
+
+    def __hash__(self) -> int:
+        '''Returns hash of DNSRecord'''
+        return hash(str(self))
+
+    def __eq__(self, other:object) -> bool:
+        '''Returns True if two DNSRecords are equal'''
+        if type(self) is not type(other):
+            return NotImplemented
+        return self.name == other.name \
+            and self.ttl == other.ttl \
+            and self.rrclass == other.rrclass \
+            and self.rrtype == other.rrtype \
+            and self.data == other.data 
+
+    def __lt__(self, other:object) -> bool:
+        '''Returns True if self is less than other'''
+        if type(self) is not type(other):
+            return NotImplemented
+        return self.name < other.name \
+            or self.ttl < other.ttl \
+            or self.rrclass < other.rrclass \
+            or self.rrtype < other.rrtype \
+            or self.data < other.data 
+
+    def copy(self):
+        '''Create a deep copy of the DNSRecord
+            
+        Returns:
+            Copy of DNSRecord
+        '''
+        return DNSRecord(self.name, self.ttl, self.rrclass, self.rrtype, self.data)
+        
+
+
+class QueryResponse:
+    '''QueryResponse acts as a ordered container for DNSRecords and
+    rcodes
+
+    Args:
+        data: Contains DNSRecords for the response.
+        rcodes: Contains rcodes for the response, or timeout if the 
+            query timed out.
+        domain (optional): Defaults to "". Hostname queried at the 
+            nameserver.
+        nameserver (optional): Defaults to "". Nameserver query was sent
+            to.
+
+    Attributes:
+        data (list): Contains DNSRecords for the response.
+        rcodes (dict): Contains rcodes for the response, or timeout if
+            the query timed out.
+        domain (str): Hostname queried at the nameserver.
+        nameserver (str): Nameserver query was sent to.
+    '''
+
+    __slots__ = ['data', 'rcodes', 'domain', 'nameserver']
+
+    def __init__(self, data:list, rcodes:dict, domain:str = "", nameserver:str = ""):
+        self.rcodes = rcodes
+        self.domain = domain
+        self.nameserver = nameserver
+        self.data = []
+        # Replace any noncanonical records with records from record_map
+        for record in data:
+            if str(record) not in record_map:
+                record_map[str(record)] = record
+            canonical_record = record_map[str(record)]
+            self.data.append(canonical_record)
+
+    def __repr__(self):
+        '''Returns string representation of QueryResponse'''
+        rcode_data = []
+        sorted_rcode_items = sorted(self.rcodes.items(), key=lambda x:x[0])
+        for rdtype_text, rcode in sorted_rcode_items:
+            rcode_data.append(f"{rdtype_text} {rcode}")
+        rcode_str = '\n'.join(rcode_data)
+        sorted_records = [str(record) for record in sorted(self.data)]
+        record_str = '\n'.join(sorted_records)
+        response_rows = [
+            "RCODES",
+            rcode_str,
+            "RECORDS",
+            record_str,
+            "DOMAIN",
+            self.domain,
+            "NAMESERVER",
+            self.nameserver
+        ]
+        return '\n'.join(response_rows)
+
+    def copy(self) -> "QueryResponse":
+        '''Create a deep copy of the QueryRepsonse
+            
+        Returns:
+            Copy of QueryRepsonse
+        '''
+        data_copy = [record.copy() for record in self.data]
+        rcodes_copy = self.rcodes.copy()
+        domain = self.domain
+        nameserver = self.nameserver
+        new_response = QueryResponse(data_copy, rcodes_copy, domain, nameserver)
+        return new_response
 
 class PyDNS(AsyncContextManager):
     '''PyDNS handles scheduling and sending DNS queries concurrently
@@ -112,7 +250,7 @@ class PyDNS(AsyncContextManager):
         # constants module
         for field in query_limiter_attributes:
             setattr(self,field, getattr(constants, field))
-        self.query_cache = LRUCache(self.MAX_CACHED_QUERIES)
+        self.query_cache = StringReferenceCache(self.MAX_CACHED_QUERIES)
         # Load list of public suffix ips
         self.tld_nameserver_ips = []
         dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -348,6 +486,9 @@ class PyDNS(AsyncContextManager):
         if cached_results is not None:
             logger.debug(
                 f"Cache found of {domain} at {nameserver} for {record_types}")
+            parsed_response = cached_results.copy()
+            parsed_response.domain = domain
+            parsed_response.nameserver = nameserver
             return cached_results
         # If same query is currently being made, wait for that query
         # to finish and return the results
@@ -369,15 +510,18 @@ class PyDNS(AsyncContextManager):
         # Collect valid records in set to remove duplicates
         data = set()
         for row in response:
-            record = DNSRecord._make(row.split()[:5])
+            record = DNSRecord(*(row.split()[:5]))
             # Index by returned result
             if record.rrtype in record_types or "ANY" in record_types:
                 data.add(record)
         # Cast data records set as list to make it JSON serializable
         data = list(data)
-        parsed_response = QueryResponse(data, rcodes, domain, nameserver)
+        generic_response = QueryResponse(data, rcodes) 
+        parsed_response = generic_response.copy()
+        parsed_response.domain = domain
+        parsed_response.nameserver = nameserver
         # Store latest query results in lru cache
-        self.query_cache.set(query_args_str, parsed_response)
+        self.query_cache.set(query_args_str, generic_response)
         # Unblock any concurrent identical results
         self.active_queries[query_args_str].set()
         # Remove query from active queries

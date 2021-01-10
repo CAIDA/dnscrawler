@@ -50,7 +50,7 @@ class StringReferenceRecord:
 class StringReferenceCache(LRUCache):
     '''A StringReferenceCache is an LRUCache that assumes that any two
     objects with the same __str__ can be substituted for one another
-
+    
     Attributes:
         str_to_reference (dict): Contains a mapping betweens strings
             and their canonical object representation within the cache

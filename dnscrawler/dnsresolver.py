@@ -94,6 +94,17 @@ class DNSResolver:
         nameservers[server] = self.root_servers[server]
         return nameservers
 
+    def stats(self) -> dict:
+        '''Get stats about the amount of queries and requests made
+        
+        Returns:
+            Dict containing query and requests stats
+        '''
+        return {
+            "pydns":self.pydns.stats(),
+            "past_resolutions":self.past_resolutions.stats()
+        }
+
     def _extract_hostname_dependencies(
         self,
         name: str,
