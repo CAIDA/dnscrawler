@@ -166,13 +166,14 @@ async def compile_nameserver_data(source_file, target_dir, target_file, db_targe
     nodes_crawled_per_hour = 3600 / crawl_duration_per_node
     logger.info(f"Average crawl time: {crawl_duration_per_node}s")
     logger.info(f"Est. nodes per hour: {nodes_crawled_per_hour}")
-    logger.info(json.dumps(resolver.pydns.stats(), indent=4))
+    logger.info(json.dumps(resolver.stats(), indent=4))
     print(get_deep_size(resolver.past_resolutions))
+    print(get_deep_size(resolver.pydns.query_cache.cache))
     print(print(resolver.past_resolutions))
 if __name__ == "__main__":
     asyncio.run(
         compile_nameserver_data(
-            "gov-domains-test2.txt",
+            "gov-domains-test4.txt",
             "data",
             "ns-list.jsonl",
             "ns-list.rdf.gz"))
