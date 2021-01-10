@@ -8,6 +8,7 @@ future==0.18.2
 grpcio==1.33.2
 idna==2.9
 numpy==1.18.4
+objsize==0.3.3
 pandas==1.0.3
 Pebble==4.5.3
 protobuf==3.13.0
