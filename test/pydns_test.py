@@ -23,7 +23,7 @@ async def test_pydns_caching():
 async def test_pydns_ratelimiting():
     async with PyDNS([],ipv4_only=True) as pydns:
         pydns.MAX_REQUESTS_PER_NAMESERVER_SECOND=3
-        pydns.MAX_REQUESTS_PER_TLD_NAMESERVER_SECOND=3
+        pydns.MAX_REQUESTS_PER_NAMESERVER_SECOND=3
         tasks = []
         tasks.append(pydns.query("google.com.", "192.5.6.30"))
         tasks.append(pydns.query("amazon.com.", "192.5.6.30"))

@@ -11,9 +11,11 @@ import dnscrawler.constants as constants
 from dnscrawler.logger import log
 from dnscrawler.node import Node, format_hostname, format_ip
 from dnscrawler.nodelist import NodeList
+from dnscrawler.nsset import NSSet
 from dnscrawler.pydns import PyDNS
 from dnscrawler.querysummary import QuerySummary
 from dnscrawler.querysummarylist import QuerySummaryList
+from dnscrawler.stringreferencecache import StringReferenceCache
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +38,9 @@ class DNSResolver:
             ipv4 nameservers to avoid ipv6 timeouts.
         active_resolutions (set): Set containing the hostnames currently
             being resolved.
-        past_resolutions (dict): Maps previously resolved hostnames to 
-            their authoritative nameservers and corresponding ips.
+        past_resolutions (StringReferenceCache): Maps previously 
+            resolved hostnames to their authoritative nameservers and 
+            corresponding ips.
         root_servers (dict): Maps each root server to a set containing
             its ip addresses.
         nameservers (defaultdict(set)): Contains the collection of
@@ -52,7 +55,7 @@ class DNSResolver:
         self.active_resolutions = set()
         self.past_resolutions = {}
         self.root_servers = constants.ROOT_SERVERS
-        self.nameserver_ip = defaultdict(set, self.root_servers)
+        self.nameserver_ip = NSSet(self.root_servers)
 
     async def __aenter__(self):
         '''Initialize PyDNS context manager'''
@@ -79,15 +82,17 @@ class DNSResolver:
         timestamp = datetime.now(timezone.utc).astimezone()
         return timestamp.isoformat()
 
-    def get_root_server(self) -> dict:
+    def get_root_server(self) -> NSSet:
         ''' Get a random root-server for querying
 
         Returns:
-            Dict mapping a root-server to a set containing its ip
+            NSSet mapping a root-server to a set containing its ip
             addresses
         '''
         server = choice(list(self.root_servers))
-        return {server: self.root_servers[server]}
+        nameservers = NSSet()
+        nameservers[server] = self.root_servers[server]
+        return nameservers
 
     def _extract_hostname_dependencies(
         self,
@@ -134,7 +139,7 @@ class DNSResolver:
         current_node: Node = None,
         node_list: NodeList = None,
         node_trust_type: str = "parent"
-    ) -> dict:
+    ) -> NSSet:
         '''Get the nameservers and corresponding ips for a host from an
         RRset.
 
@@ -173,7 +178,7 @@ class DNSResolver:
                 child, provisioning).
 
         Returns:
-            Dict of the nameservers and corresponding ips for
+            NSSet of the nameservers and corresponding ips for
             current_name found in records
 
         Raises:
@@ -195,13 +200,13 @@ class DNSResolver:
             raise ValueError("Invalid node_trust_type:", node_trust_type)
 
         current_name = format_hostname(current_name)
-        # Create dictionary to store all ips for each authoritative ns
-        auth_ns = {}
+        # Create NSSet to store all ips for each authoritative ns
+        auth_ns = NSSet()
         # Pull all nameservers for current_name ffrom current RRset into
         # a set
         current_name_ns = set()
         # Pull all prior ip-ns pairs, as well ip-ns pairs from current
-        # RRset into dictionary and match with current_name_ns
+        # RRset into NSSet and match with current_name_ns
         nameserver_ip = self.nameserver_ip
         # Map current_name's nameservers to its nameserver nodes
         node_nameservers = {}
@@ -318,8 +323,8 @@ class DNSResolver:
                     current_node=ns_node,
                     node_list=node_list
                 )
-                reresolved_ns = ns_name_auth_ns.get(ns_name, None)
-                if reresolved_ns is not None:
+                reresolved_ns = ns_name_auth_ns[ns_name]
+                if len(reresolved_ns) > 0:
                     # If reresolution is successful then add to auth_ns
                     auth_ns[ns_name] = reresolved_ns.copy()
             # Add the nameserver-ip relationships to the node data
@@ -394,7 +399,8 @@ class DNSResolver:
         # Return cached past resolutions to prevent cyclic dependencies
         # and reduce queries
         if name in self.past_resolutions:
-            return self.past_resolutions[name]
+            logger.debug(f"Past resolution cache found for {name}")
+            return self.past_resolutions[name].copy()
 
         # If name is only tld or '.'
         isTLD = len(name_parts) <= 1
@@ -433,7 +439,7 @@ class DNSResolver:
         # domain to get the final set of authoritative nameservers
         for i in range(2):
             node_trust_type = "parent" if i == 0 else "child"
-            new_auth_ns = defaultdict(set)
+            new_auth_ns = NSSet()
             query_response_list = []
             # Flag to detect if atleast one nameserver did not timeout
             has_valid_response = False
@@ -445,27 +451,26 @@ class DNSResolver:
             empty_nonterminal = True
             # List of compiled ip, nameserver, ns_node tuples compiled
             # from all nameservers in auth_ns
-            ip_list = []
+            ip_ns_list = []
             # Query name for each ip for each ns in auth_ns
             for nameserver, ip_set in auth_ns.items():
-                nameserver_node = node_list.create_node(nameserver,
-                                                        "nameserver")
+                nameserver_node = node_list.create_node(nameserver, "nameserver")
                 for ip in ip_set:
                     node_type = Node.infer_node_type(ip)
                     nameserver_ip_node = node_list.create_node(ip, node_type)
                     nameserver_node.trusts(nameserver_ip_node, node_trust_type)
-                    ip_list.append((ip, nameserver, nameserver_node))
+                    ip_ns_list.append((ip, nameserver, nameserver_node))
 
             query_requests = []
-            # Start query for each ip in ip_list concurrently
-            for ip, nameserver, nameserver_node in ip_list:
+            # Start query for each ip in ip_ns_list concurrently
+            for ip, nameserver, nameserver_node in ip_ns_list:
                 query_name = name
                 dns_query = self.pydns.query(domain=query_name, nameserver=ip)
                 query_requests.append(dns_query)
             query_responses = await asyncio.gather(*query_requests)
             query_response_list += query_responses
-            for count, record in enumerate(ip_list):
-                # Unpack ip_list record
+            for count, record in enumerate(ip_ns_list):
+                # Unpack ip_ns_list record
                 ip, nameserver, nameserver_node = record
                 query_name = name
                 query_response = query_responses[count]

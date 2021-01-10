@@ -9,6 +9,7 @@ import sys
 import time
 
 import asyncio
+from objsize import get_deep_size
 from pebble import ProcessPool
 
 sys.path.append("../")
@@ -94,7 +95,7 @@ async def compile_nameserver_data(source_file, target_dir, target_file, db_targe
     logger.info("Starting initial crawling...")
     crawl_list = []
     concurrent_crawl_limiter = asyncio.Semaphore(max_concurrent_crawls)
-    async with DNSResolver() as resolver:
+    async with DNSResolver(ipv4_only=True) as resolver:
         for nameserver in nameservers:
             crawl_coro = create_nameserver_file(
                 resolver, nameserver, target_dir, db_target_extension)
@@ -166,11 +167,12 @@ async def compile_nameserver_data(source_file, target_dir, target_file, db_targe
     logger.info(f"Average crawl time: {crawl_duration_per_node}s")
     logger.info(f"Est. nodes per hour: {nodes_crawled_per_hour}")
     logger.info(json.dumps(resolver.pydns.stats(), indent=4))
-
+    print(get_deep_size(resolver.past_resolutions))
+    print(print(resolver.past_resolutions))
 if __name__ == "__main__":
     asyncio.run(
         compile_nameserver_data(
-            "ns_list_test.txt",
+            "gov-domains-test2.txt",
             "data",
             "ns-list.jsonl",
             "ns-list.rdf.gz"))

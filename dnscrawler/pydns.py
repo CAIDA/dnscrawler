@@ -13,11 +13,11 @@ import socks
 import asyncio
 from dns import asyncquery as dnsquery, message as dnsmessage, rdatatype
 
-import dnscrawler.constants as constants
 from dnscrawler.asynciobackend import Backend
+import dnscrawler.constants as constants
+from dnscrawler.contextmanager import AsyncContextManager
 from dnscrawler.lrucache import LRUCache
 from dnscrawler.ratelimiter import RateLimiter
-from dnscrawler.contextmanager import AsyncContextManager
 
 
 logger = logging.getLogger(__name__)

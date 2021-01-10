@@ -5,7 +5,6 @@ import json
 import time
 
 import asyncio
-from objsize import get_deep_size
 
 from dnscrawler import DNSResolver, load_schema, SOCKSProxy
 from dnscrawler.logger import log
@@ -19,13 +18,15 @@ async def main():
     # async with DNSResolver(socket_factories=[proxy],ipv4_only=True) as resolver:
     async with DNSResolver(ipv4_only=True) as resolver:
         # resolver = DNSResolver()
-        # host_dependencies = await resolver.get_host_dependencies("google.com")
+        host_dependencies = await resolver.get_host_dependencies("google.com")
+        print(json.dumps(host_dependencies))
+        host_dependencies = await resolver.get_host_dependencies("google.com")
         # Empty non-terminal
         # host_dependencies = await resolver.get_host_dependencies("caag.state.ca.us")
         # Hazardous domain
         # host_dependencies = await resolver.get_host_dependencies("PREGNANCYCALCULATE.COM.")
         # Cross zone loops
-        host_dependencies = await resolver.get_host_dependencies("amazon.com")
+        # host_dependencies = await resolver.get_host_dependencies("amazon.com")
         # Early ns records
         # host_dependencies = await resolver.get_host_dependencies("aridns.net.au")
         # Retry domain records due to timeout
@@ -37,8 +38,6 @@ async def main():
         finish_time = float(time.time())
         duration = finish_time - start_time
         print(json.dumps(host_dependencies))
-        print(print(resolver.past_resolutions))
-        print(print(get_deep_size(resolver.past_resolutions)))
         print(f"Duration:{duration}")
     # logger.info(json.dumps(resolver.pydns.stats(), indent=4))
 

@@ -24,7 +24,8 @@ class LRUCache:
         if self.is_full():
             self.pop()
         self.cache[key] = value
-        self.cache.move_to_end(key)
+        if self.capacity:
+            self.cache.move_to_end(key)
         return (key, value)
 
     def size(self):
